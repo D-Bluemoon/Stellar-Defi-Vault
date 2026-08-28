@@ -42,6 +42,7 @@ pub mod minimum_unstake_amount; // issue #441 — minimum unstake amount prevent
 pub mod mutual_insurance_pool; // issue #366 — peer mutual insurance pool
 pub mod nft_fractionalize; // NFT receipt fractionalization
 pub mod nft_redeem; // issue #410 — burn-and-redeem NFT-triggered position exit
+pub mod operator_reputation_score; // issue #442 — cross-pool operator reputation scoring
 pub mod partial_freeze; // issue #337 — partial position freeze
 pub mod performance_league_table; // issue #373 — cross-pool performance league table
 pub mod pool_clone_factory; // issue #412 — deploy new pool instances from this contract as template
