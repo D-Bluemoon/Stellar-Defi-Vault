@@ -1,7 +1,7 @@
-//! Pool health insurance (issue #289).
+﻿//! Pool health insurance (issue #289).
 //!
 //! An external guarantor deposits a reserve that covers staker losses if the
-//! admin misbehaves — for example by draining reward tokens. The guarantor can
+//! admin misbehaves â€” for example by draining reward tokens. The guarantor can
 //! only withdraw their reserve once the pool has been demonstrably solvent for
 //! 90 days and no insolvency has been declared.
 //!
@@ -14,7 +14,7 @@
 //! a reversible declaration would let an admin open the claim window, watch who
 //! claims, and close it again. But it also means a hostile admin can strand a
 //! guarantor's reserve by declaring insolvency for no reason. Pair it with the
-//! timelock from issue #137 where that is available — the guarantor's
+//! timelock from issue #137 where that is available â€” the guarantor's
 //! protection against the admin is procedural, not enforced here.
 //!
 //! # Storage
@@ -26,7 +26,8 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Ledgers the pool must stay solvent before a guarantor may withdraw.
 ///
@@ -77,11 +78,11 @@ pub fn is_insolvent(env: &Env) -> bool {
     insolvency_ledger(env).is_some()
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Register a guarantor and the coverage they commit to. Admin only.
     ///
-    /// Registering does not move funds — the guarantor funds the reserve
+    /// Registering does not move funds â€” the guarantor funds the reserve
     /// themselves via `deposit_guarantee`, so the admin cannot register an
     /// address and drain it.
     pub fn register_guarantor(
@@ -151,7 +152,7 @@ impl VaultContract {
 
     /// Declare the pool insolvent, opening the reserve to staker claims.
     ///
-    /// Admin only and **irreversible** — see the module docs for why, and for
+    /// Admin only and **irreversible** â€” see the module docs for why, and for
     /// the risk that carries for the guarantor.
     pub fn declare_insolvency(env: Env) -> Result<(), VaultError> {
         admin::require_admin(&env)?;
@@ -209,7 +210,7 @@ impl VaultContract {
     ///
     /// Permitted only once the pool has been solvent for
     /// [`SOLVENCY_PERIOD_LEDGERS`] since registration, and never after an
-    /// insolvency declaration — otherwise a guarantor could pull the reserve
+    /// insolvency declaration â€” otherwise a guarantor could pull the reserve
     /// out from under the claims it exists to cover.
     pub fn withdraw_guarantee(env: Env, guarantor: Address) -> Result<i128, VaultError> {
         guarantor.require_auth();
@@ -255,3 +256,17 @@ impl VaultContract {
             .unwrap_or(0)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

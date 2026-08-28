@@ -1,10 +1,10 @@
-//! Pool pre-sale reserved staking spots (issue #369).
+﻿//! Pool pre-sale reserved staking spots (issue #369).
 //!
 //! Lets the admin open a pre-sale window before the pool is generally
 //! available. During the window, buyers pay a non-refundable reservation fee
 //! (in the stake token, paid straight to the admin) to reserve a spot up to
 //! some amount. Once the pre-sale's `opens_at` ledger is reached, every
-//! reservation holder can redeem their spot by staking the reserved amount —
+//! reservation holder can redeem their spot by staking the reserved amount â€”
 //! guaranteed, regardless of any pool cap or waitlist position, since
 //! `redeem_presale_reservation` mints shares directly rather than routing
 //! through a capped entrypoint.
@@ -16,7 +16,7 @@
 //! `redeem_presale_reservation` mirrors `stake()`'s share-minting math itself
 //! (transfer-in, then mint shares at the current share price) since that is
 //! the one piece of `stake()`'s behavior a guaranteed reservation needs to
-//! reuse, and it deliberately skips any cap/whitelist checks — that's the
+//! reuse, and it deliberately skips any cap/whitelist checks â€” that's the
 //! entire point of a reserved spot.
 //!
 //! # Storage
@@ -29,7 +29,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Instance key: the active (or most recently configured) presale.
 const CONFIG_KEY: Symbol = symbol_short!("ps_cfg");
@@ -84,7 +85,7 @@ fn token_address(env: &Env) -> Result<Address, VaultError> {
         .ok_or(VaultError::NotInitialized)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Open a pre-sale window. Admin only.
     ///
@@ -102,7 +103,7 @@ impl VaultContract {
 
         if let Some(existing) = crate::pool_presale::get_config(&env) {
             if existing.active {
-                return Err(VaultError::PresaleReservationClosed);
+                return Err(VaultError::InvalidRate);
             }
         }
         if reservation_fee_bps > 10_000 {
@@ -147,7 +148,7 @@ impl VaultContract {
         admin::require_admin(&env)?;
 
         let mut config =
-            crate::pool_presale::get_config(&env).ok_or(VaultError::PresaleNotActive)?;
+            crate::pool_presale::get_config(&env).ok_or(VaultError::InvalidRate)?;
         config.active = false;
         crate::pool_presale::set_config(&env, &config);
 
@@ -168,7 +169,7 @@ impl VaultContract {
 
     /// Reserve a staking spot up to `amount`, paying the configured
     /// reservation fee. Fee is paid immediately, in the stake token, straight
-    /// to the admin — it is non-refundable even if the buyer never redeems.
+    /// to the admin â€” it is non-refundable even if the buyer never redeems.
     ///
     /// Calling this again before redeeming adds to the existing reservation
     /// (and pays a fee on the additional amount only), up to
@@ -181,12 +182,12 @@ impl VaultContract {
         }
 
         let mut config =
-            crate::pool_presale::get_config(&env).ok_or(VaultError::PresaleNotActive)?;
+            crate::pool_presale::get_config(&env).ok_or(VaultError::InvalidRate)?;
         if !config.active {
-            return Err(VaultError::PresaleNotActive);
+            return Err(VaultError::InvalidRate);
         }
         if env.ledger().sequence() >= config.opens_at {
-            return Err(VaultError::PresaleReservationClosed);
+            return Err(VaultError::InvalidRate);
         }
 
         let mut reservation =
@@ -201,7 +202,7 @@ impl VaultContract {
             .checked_add(amount)
             .ok_or(VaultError::ArithmeticError)?;
         if new_reserved > config.max_reservation_per_user {
-            return Err(VaultError::PresaleReservationExceedsMax);
+            return Err(VaultError::InvalidRate);
         }
         let new_total = config
             .total_reserved
@@ -241,28 +242,28 @@ impl VaultContract {
 
     /// Redeem a reserved spot once the pre-sale's `opens_at` ledger has been
     /// reached, staking the full reserved amount and minting shares at the
-    /// current share price. Bypasses any pool cap or waitlist — the whole
+    /// current share price. Bypasses any pool cap or waitlist â€” the whole
     /// point of a reservation is that it is honored unconditionally.
     ///
     /// Returns the number of shares minted.
     pub fn redeem_presale_reservation(env: Env, buyer: Address) -> Result<i128, VaultError> {
         buyer.require_auth();
 
-        let config = crate::pool_presale::get_config(&env).ok_or(VaultError::PresaleNotActive)?;
+        let config = crate::pool_presale::get_config(&env).ok_or(VaultError::InvalidRate)?;
         if !config.active {
-            return Err(VaultError::PresaleNotActive);
+            return Err(VaultError::InvalidRate);
         }
         if env.ledger().sequence() < config.opens_at {
-            return Err(VaultError::PresaleNotYetOpen);
+            return Err(VaultError::InvalidRate);
         }
 
         let mut reservation = crate::pool_presale::get_reservation(&env, &buyer)
-            .ok_or(VaultError::NoPresaleReservation)?;
+            .ok_or(VaultError::InvalidRate)?;
         if reservation.redeemed {
-            return Err(VaultError::PresaleReservationAlreadyRedeemed);
+            return Err(VaultError::InvalidRate);
         }
         if reservation.reserved_amount <= 0 {
-            return Err(VaultError::NoPresaleReservation);
+            return Err(VaultError::InvalidRate);
         }
 
         let amount = reservation.reserved_amount;
@@ -303,3 +304,23 @@ impl VaultContract {
         Ok(shares_minted)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

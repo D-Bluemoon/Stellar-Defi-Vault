@@ -1,10 +1,10 @@
-//! Sealed-bid position auction (issue #403).
+﻿//! Sealed-bid position auction (issue #403).
 //!
 //! Distinct from issue #211's peer-to-peer AMM swap (agreed ratio, two
 //! willing parties). Here a staker lists their whole position for sale;
 //! bidders commit to a hidden bid during a commit phase, reveal it during a
 //! reveal phase, and the highest revealed bid wins the position. Modeled on
-//! `commitment.rs`'s commit–reveal hashing (`SHA256(amount_bytes || salt)`).
+//! `commitment.rs`'s commitâ€“reveal hashing (`SHA256(amount_bytes || salt)`).
 //!
 //! # Fund custody
 //!
@@ -12,7 +12,7 @@
 //! hidden by pre-funding the auction's `min_bid` as escrow when committing,
 //! then topping up to their revealed amount (if higher) at reveal time. An
 //! unrevealed bid's locked `min_bid` is forfeited to the slash treasury as
-//! the anti-gaming measure the issue's notes call for — silently reneging on
+//! the anti-gaming measure the issue's notes call for â€” silently reneging on
 //! a commitment costs the same as never having bid, plus the forfeited
 //! deposit.
 //!
@@ -26,7 +26,7 @@
 //! `total_deposited` are left untouched throughout, since the underlying
 //! claim never leaves the pool, only its owner-of-record changes at
 //! settlement. `AuctionListing` therefore carries one field beyond the
-//! issue's literal struct — `escrowed_shares` — since without it there is
+//! issue's literal struct â€” `escrowed_shares` â€” since without it there is
 //! nothing to actually transfer to the winner.
 //!
 //! # Storage
@@ -38,7 +38,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Env,
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient, MAX_AUCTION_BIDS};
+use crate::vault::{VaultContract, VaultContractClient};
+use crate::vault::{ MAX_AUCTION_BIDS};
 
 /// Instance-storage key for the next auction id counter.
 const NEXT_ID_KEY: Symbol = symbol_short!("psa_next");
@@ -71,7 +72,7 @@ pub struct AuctionListing {
     pub escrowed_shares: i128,
 }
 
-/// One bidder's commit–reveal state for an auction.
+/// One bidder's commitâ€“reveal state for an auction.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuctionBidRecord {
@@ -81,7 +82,7 @@ pub struct AuctionBidRecord {
     pub amount: i128,
 }
 
-// ── storage helpers ──────────────────────────────────────────────────────────
+// â”€â”€ storage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn next_auction_id(env: &Env) -> u32 {
     let id: u32 = env.storage().instance().get(&NEXT_ID_KEY).unwrap_or(0);
@@ -154,7 +155,7 @@ fn preimage(env: &Env, amount: i128, salt: &Bytes) -> Bytes {
 }
 
 /// Compute the commit hash for an `(amount, salt)` pair. Exposed (like
-/// `commitment.rs::compute_hash`) so a caller — or a test — can build the
+/// `commitment.rs::compute_hash`) so a caller â€” or a test â€” can build the
 /// commitment with exactly the encoding `reveal_bid` verifies against.
 pub(crate) fn compute_bid_hash(env: &Env, amount: i128, salt: &Bytes) -> Bytes {
     env.crypto().sha256(&preimage(env, amount, salt)).into()
@@ -167,7 +168,7 @@ fn token_address(env: &Env) -> Result<Address, VaultError> {
         .ok_or(VaultError::NotInitialized)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// List the caller's entire staking position for sale via sealed-bid
     /// auction. Only one active (unsettled) auction per seller at a time.
@@ -204,7 +205,7 @@ impl VaultContract {
         }
 
         // Move the position out of the seller's own balance for the
-        // duration of the auction — see the module-level "Position custody"
+        // duration of the auction â€” see the module-level "Position custody"
         // note. `total_shares`/`total_deposited` are untouched.
         balance::set_shares(&env, &user, 0);
 
@@ -300,7 +301,7 @@ impl VaultContract {
 
     /// Reveal a previously committed bid. Reverts if the hash doesn't match
     /// or the reveal window isn't open. A reveal below `min_bid` is ignored
-    /// (left unrevealed) rather than reverting, per the issue's notes — its
+    /// (left unrevealed) rather than reverting, per the issue's notes â€” its
     /// locked deposit is still forfeited at `refund_losing_bids` time.
     pub fn reveal_bid(
         env: Env,
@@ -498,3 +499,10 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+

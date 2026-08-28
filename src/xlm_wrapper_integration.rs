@@ -1,4 +1,4 @@
-//! Auto-wrap native XLM to wXLM before staking (issue #372).
+﻿//! Auto-wrap native XLM to wXLM before staking (issue #372).
 //!
 //! Many Stellar users hold native XLM, but staking pools require wrapped XLM
 //! (wXLM) as a Soroban token. This module provides a single user-facing
@@ -23,13 +23,13 @@
 //! # Relationship to the pool token
 //!
 //! This module asserts at call time that the pool's configured stake token
-//! matches the wXLM SAC address — mismatches revert with `InvalidToken`. This
+//! matches the wXLM SAC address â€” mismatches revert with `InvalidToken`. This
 //! enforces the guarantee that the convenience path is only available on pools
 //! whose staking token actually is wXLM.
 //!
 //! # Storage
 //!
-//! `DataKey` is at Soroban's 50-variant cap — all keys use raw `Symbol`-keyed
+//! `DataKey` is at Soroban's 50-variant cap â€” all keys use raw `Symbol`-keyed
 //! instance storage, matching the pattern throughout this codebase.
 
 use soroban_sdk::{contractimpl, contracttype, symbol_short, token, Address, Env, Symbol};
@@ -37,7 +37,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, token, Address, Env,
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Instance-storage key for the configured native XLM Stellar Asset Contract
 /// address (set once by admin via `set_xlm_sac_address()`).
@@ -58,7 +59,7 @@ pub struct XlmWrapStats {
     pub last_wrap_ledger: u32,
 }
 
-// ── storage helpers ──────────────────────────────────────────────────────────
+// â”€â”€ storage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn get_xlm_sac(env: &Env) -> Option<Address> {
     env.storage().instance().get(&XLM_SAC_KEY)
@@ -83,7 +84,7 @@ fn set_xlm_wrap_stats(env: &Env, stats: &XlmWrapStats) {
     env.storage().instance().set(&XLM_WRAP_STATS_KEY, stats);
 }
 
-// ── internal helper ──────────────────────────────────────────────────────────
+// â”€â”€ internal helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Validate that the pool's configured stake token matches `expected_sac`.
 /// Returns the token address on success so callers don't need a second read.
@@ -100,7 +101,7 @@ fn require_token_is_wxlm(env: &Env, expected_sac: &Address) -> Result<Address, V
     Ok(token_addr)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Configure the native XLM Stellar Asset Contract address. Admin only.
     ///
@@ -109,7 +110,7 @@ impl VaultContract {
     /// Testnet, Mainnet, and Futurenet, so it is stored here rather than
     /// hard-coded.
     ///
-    /// Setting a new address overwrites the previous value — use this to
+    /// Setting a new address overwrites the previous value â€” use this to
     /// update if the network's SAC address ever changes.
     pub fn set_xlm_sac_address(env: Env, sac: Address) -> Result<(), VaultError> {
         admin::require_admin(&env)?;
@@ -139,7 +140,7 @@ impl VaultContract {
     ///
     /// # Flow
     ///
-    /// 1. `user.require_auth()` — single auth covers the whole flow.
+    /// 1. `user.require_auth()` â€” single auth covers the whole flow.
     /// 2. Reads the configured XLM SAC address; reverts with `NotInitialized`
     ///    if not set.
     /// 3. Asserts the pool's stake token == XLM SAC (wXLM); reverts with
@@ -159,7 +160,7 @@ impl VaultContract {
     ///
     /// # Note on "atomicity"
     ///
-    /// Soroban transactions are atomic by definition — either every operation
+    /// Soroban transactions are atomic by definition â€” either every operation
     /// in the transaction succeeds or the entire transaction rolls back. The
     /// wrap and the stake share a single transaction, satisfying the issue's
     /// "atomically in one user-facing call" requirement.
@@ -216,7 +217,7 @@ impl VaultContract {
             &xlm_amount,
         );
 
-        // Mint shares — same math as stake().
+        // Mint shares â€” same math as stake().
         let total_shares = balance::get_total_shares(&env);
         let total_deposited = balance::get_total_deposited(&env);
         let shares_minted = if total_shares == 0 || total_deposited == 0 {
@@ -264,3 +265,17 @@ impl VaultContract {
         get_xlm_wrap_stats(&env)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

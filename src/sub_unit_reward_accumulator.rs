@@ -1,7 +1,7 @@
-//! Sub-unit reward accumulator (issue #367).
+﻿//! Sub-unit reward accumulator (issue #367).
 //!
-//! Soroban token transfers require amounts >= 1 stroop. Reward accrual —
-//! `position * rate_bps * elapsed_ledgers / (10_000 * ledgers_per_year)` — is
+//! Soroban token transfers require amounts >= 1 stroop. Reward accrual â€”
+//! `position * rate_bps * elapsed_ledgers / (10_000 * ledgers_per_year)` â€” is
 //! only exact in real-number math; done directly in `i128` it truncates on
 //! every accrual, and for small positions or short accrual windows that
 //! truncated remainder can be a meaningful fraction of what's actually owed,
@@ -16,7 +16,7 @@
 //!
 //! Like `compound_optimizer.rs` and `epoch_reward_cap.rs`, this is a fully
 //! self-contained accrual + claim path with its own checkpoint, rather than
-//! a wrapper around `vault.rs`'s existing `claim()` — that flow's own reward
+//! a wrapper around `vault.rs`'s existing `claim()` â€” that flow's own reward
 //! accrual (whatever feeds `AccruedReward`) is untouched, so there's no
 //! double-accrual risk between this module and it. `claim_sub_unit_reward`
 //! computes reward directly from the position size and the pool's reward
@@ -32,7 +32,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Fixed-point scale for sub-stroop precision: one stroop = `SUB_UNIT_SCALE`
 /// scaled units. The remainder carried between claims is always in
@@ -112,7 +113,7 @@ fn compute_accrual(env: &Env, user: &Address, now: u32) -> Result<(i128, i128), 
     Ok((total_scaled / SUB_UNIT_SCALE, total_scaled % SUB_UNIT_SCALE))
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Read-only preview of what `claim_sub_unit_reward` would do right now,
     /// without mutating any state: the carried remainder, the last accrual
@@ -166,3 +167,17 @@ impl VaultContract {
         Ok(whole)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

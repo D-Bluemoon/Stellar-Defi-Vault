@@ -1,4 +1,4 @@
-//! Cross-pool performance league table (issue #373).
+﻿//! Cross-pool performance league table (issue #373).
 //!
 //! Builds on issue #276 (competitive seasons). Each pool publishes its own
 //! per-season performance metrics on-chain, and the league table is queried
@@ -20,7 +20,7 @@
 //!
 //! # Storage
 //!
-//! `DataKey` is at Soroban's 50-variant cap — all keys use raw `Symbol`-keyed
+//! `DataKey` is at Soroban's 50-variant cap â€” all keys use raw `Symbol`-keyed
 //! or tuple-keyed storage, matching the pattern in `balance.rs` and other
 //! feature modules.
 
@@ -30,7 +30,8 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::interface::IStakingPoolClient;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Instance-storage key for the list of sibling pool addresses registered in
 /// the league.
@@ -74,7 +75,7 @@ pub struct LeagueTableEntry {
     pub stats: PoolSeasonStats,
 }
 
-// ── storage helpers ──────────────────────────────────────────────────────────
+// â”€â”€ storage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn get_league_pools(env: &Env) -> Vec<Address> {
     env.storage()
@@ -99,7 +100,7 @@ fn set_season_stats(env: &Env, stats: &PoolSeasonStats) {
         .set(&(LG_STATS_KEY, stats.season_start), stats);
 }
 
-// ── insertion sort helper (descending by total_rewards_distributed) ───────────
+// â”€â”€ insertion sort helper (descending by total_rewards_distributed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn insert_sorted(env: &Env, table: &mut Vec<LeagueTableEntry>, entry: LeagueTableEntry) {
     // Simple insertion into sorted position; table is bounded by MAX_LEAGUE_POOLS+1.
@@ -124,7 +125,7 @@ fn insert_sorted(env: &Env, table: &mut Vec<LeagueTableEntry>, entry: LeagueTabl
     *table = new_table;
 }
 
-// ── assign ranks in-place ─────────────────────────────────────────────────────
+// â”€â”€ assign ranks in-place â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn assign_ranks(env: &Env, table: &mut Vec<LeagueTableEntry>) {
     let mut ranked: Vec<LeagueTableEntry> = Vec::new(env);
@@ -135,7 +136,7 @@ fn assign_ranks(env: &Env, table: &mut Vec<LeagueTableEntry>) {
     *table = ranked;
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Publish this pool's performance metrics for a completed season.
     /// Admin only.
@@ -289,7 +290,7 @@ impl VaultContract {
     /// storage through the same `LG_STATS_KEY`/`season_start` tuple key. In
     /// practice this means sibling pools must be instances of the same
     /// contract (Soroban cross-contract persistent storage reads are not
-    /// possible today — each contract owns its own ledger entries), so this
+    /// possible today â€” each contract owns its own ledger entries), so this
     /// implementation falls back to querying siblings' live state when no
     /// pre-published stats exist, constructing a best-effort snapshot from
     /// live `total_staked` and `pending_reward` data via `IStakingPoolClient`.
@@ -324,7 +325,7 @@ impl VaultContract {
             let is_paused = client.is_paused();
 
             // Build a snapshot entry from live data. `total_rewards_distributed`
-            // is approximated as `pending_reward(sibling_addr)` — a placeholder
+            // is approximated as `pending_reward(sibling_addr)` â€” a placeholder
             // since we can only query state the IStakingPool interface exposes.
             // A sibling running this same module would publish proper stats via
             // `publish_season_performance`, but we degrade gracefully here for
@@ -332,7 +333,7 @@ impl VaultContract {
             let entry_stats = PoolSeasonStats {
                 pool: sibling_addr.clone(),
                 season_start,
-                // IStakingPool doesn't expose cumulative rewards — use 0 for
+                // IStakingPool doesn't expose cumulative rewards â€” use 0 for
                 // sibling pools that haven't published their own stats. This
                 // means published entries sort above live-only snapshots, which
                 // is the correct incentive.
@@ -357,3 +358,17 @@ impl VaultContract {
         table
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

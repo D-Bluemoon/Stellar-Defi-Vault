@@ -1,17 +1,17 @@
-//! Calendar-style epoch alignment (issue #342).
+﻿//! Calendar-style epoch alignment (issue #342).
 //!
 //! Builds on issue #37's epoch-based distribution: instead of an epoch
 //! "starting" whenever `set_epoch_mode` happens to be called, epochs are
-//! pinned to predictable ledger boundaries — `anchor_ledger + N *
-//! epoch_length` — so reward timing is auditable across restarts and doesn't
+//! pinned to predictable ledger boundaries â€” `anchor_ledger + N *
+//! epoch_length` â€” so reward timing is auditable across restarts and doesn't
 //! drift with when an admin happened to flip a switch.
 //!
 //! # Wiring
 //!
 //! This crate has no live reward-distribution entrypoint to hook an automatic
 //! epoch-transition trigger into yet (see this PR's description for the full
-//! picture), so — matching the level of integration already established by
-//! `vesting_cliff.rs`/`price_oracle.rs` — this module is entirely
+//! picture), so â€” matching the level of integration already established by
+//! `vesting_cliff.rs`/`price_oracle.rs` â€” this module is entirely
 //! computation-from-the-current-ledger: there's no stored "current epoch"
 //! that needs advancing, `get_current_epoch_number` derives it fresh every
 //! call, which is what makes epoch transitions automatic with no admin
@@ -26,7 +26,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Instance-storage key for the epoch alignment config.
 const CONFIG_KEY: Symbol = symbol_short!("epc_algn");
@@ -52,7 +53,7 @@ pub fn get_alignment(env: &Env) -> Option<EpochAlignment> {
 ///
 /// `(current_ledger - anchor_ledger) / epoch_length`, per the issue's
 /// formula. Ledgers before the anchor are clamped to epoch 0 rather than
-/// underflowing — an anchor set in the future (e.g. scheduling a new
+/// underflowing â€” an anchor set in the future (e.g. scheduling a new
 /// alignment ahead of time) reports epoch 0 until it's reached.
 fn epoch_number_at(alignment: &EpochAlignment, ledger: u32) -> u32 {
     if alignment.epoch_length == 0 {
@@ -105,7 +106,7 @@ pub fn maybe_emit_boundary_crossed(env: &Env, user: &Address) {
         }
         Some(_) => {}
         None => {
-            // First interaction ever seen for this user under alignment —
+            // First interaction ever seen for this user under alignment â€”
             // record the baseline without emitting; there's no prior epoch
             // to have "crossed" from.
             env.storage().persistent().set(&key, &current_epoch);
@@ -113,12 +114,12 @@ pub fn maybe_emit_boundary_crossed(env: &Env, user: &Address) {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Set calendar-style epoch alignment. Admin only.
     ///
     /// Per the issue notes, this does not retroactively affect rewards
-    /// already distributed in past epochs — it only changes how future
+    /// already distributed in past epochs â€” it only changes how future
     /// epoch numbers/boundaries are computed from this point forward.
     pub fn set_epoch_alignment(
         env: Env,
@@ -176,3 +177,17 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

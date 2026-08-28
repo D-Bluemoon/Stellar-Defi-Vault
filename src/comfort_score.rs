@@ -1,6 +1,6 @@
-//! Personalized pool comfort score for a user's risk profile (issue #399).
+﻿//! Personalized pool comfort score for a user's risk profile (issue #399).
 //!
-//! Purely informational — never affects staking mechanics. Compares the
+//! Purely informational â€” never affects staking mechanics. Compares the
 //! pool's current configuration against a user's stated risk preferences
 //! and reports a 0-100 suitability score with a flag per mismatch.
 
@@ -9,7 +9,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 const RISK_PROFILE_KEY: Symbol = symbol_short!("cs_prof");
 const LOCK_DAYS_KEY: Symbol = symbol_short!("cs_lockd");
@@ -69,7 +70,7 @@ fn get_pool_audited(env: &Env) -> bool {
     env.storage().instance().get(&AUDITED_KEY).unwrap_or(false)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Set the caller's risk profile for this pool. Requires the user's own auth.
     pub fn set_risk_profile(
@@ -167,3 +168,17 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

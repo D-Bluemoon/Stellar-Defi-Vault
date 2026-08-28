@@ -1,20 +1,7 @@
-#![no_std]
-mod admin;
-pub mod admin_succession;
-mod balance;
-mod errors;
-mod events;
-pub mod example_consumer;
-pub mod interface;
-pub mod nft;
-mod storage;
-mod vault;
-pub mod vesting_cliff;
-pub mod stake_quota;
-pub mod slash_dispute;
-pub mod transfer_cooldown;
-pub mod reward_waterfall;
-
+﻿#![no_std]
+use soroban_sdk::contract;
+#[contract]
+pub struct VaultContract;
 mod admin;
 pub mod admin_succession; // designated heir admin activated on prolonged inactivity
 pub mod anti_dump_claim_cooldown; // issue #365 — cooldown after large reward claims
@@ -25,7 +12,11 @@ pub mod example_consumer;
 pub mod interface;
 pub mod nft;
 mod storage;
-mod vault;
+pub mod vault;
+pub mod stake_quota;
+pub mod slash_dispute;
+pub mod transfer_cooldown;
+pub mod reward_waterfall;
 
 // Features added as their own modules rather than inside `vault.rs`. Soroban
 // supports several `#[contractimpl]` blocks for one contract type, and
@@ -52,14 +43,12 @@ pub mod governance_power_decay; // issue #404 — governance vote weight decay f
 pub mod insurance; // issue #289 — pool health insurance
 pub mod keeper_registry; // approved-keeper registry with performance stats
 pub mod minimum_reserve_ratio; // issue #405 — minimum reward-reserve ratio floor
-pub mod mutual_insurance_pool; // issue #366 — peer mutual insurance pool
 pub mod nft_fractionalize; // NFT receipt fractionalization
 pub mod nft_redeem; // issue #410 — burn-and-redeem NFT-triggered position exit
 pub mod partial_freeze; // issue #337 — partial position freeze
 pub mod pool_clone_factory; // issue #412 — deploy new pool instances from this contract as template
 pub mod pool_presale; // issue #369 — pool pre-sale reserved staking spots
 pub mod position_dna; // deterministic staking position fingerprint (position DNA)
-pub mod position_heartbeat; // issue #414 — periodic check-ins to maintain boosted reward status
 pub mod price_oracle; // issue #290 — position price oracle
 pub mod qr_metadata; // issue #324 — stake receipt QR metadata
 pub mod reputation_decay; // reputation score time-decay mechanism
@@ -69,9 +58,9 @@ pub mod tvl_rate_rebalance; // issue #333 — TVL-tiered pool reward rate rebala
 pub mod twa_reward_rate; // issue #400 — time-weighted average reward rate for smoother pending-reward estimates
 pub mod validator_rewards; // validator node reward integration
 pub mod vesting_cliff; // issue #287 — reward vesting cliff
+pub mod stake_weighted_tip_jar; // issue #354 — stake-weighted tip jar
 
 pub use nft::StakeReceiptNFT;
-pub use vault::VaultContract;
 
 #[cfg(test)]
 mod test;

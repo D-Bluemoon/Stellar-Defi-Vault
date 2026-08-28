@@ -1,13 +1,13 @@
-//! Collateral swap without unstaking (issue #335).
+﻿//! Collateral swap without unstaking (issue #335).
 //!
 //! Lets a staker swap their underlying collateral token for a different one
 //! while keeping their position (and, per the issue, an active debt-NFT
-//! loan) open — unstake the old token, swap via DEX, re-stake the result,
+//! loan) open â€” unstake the old token, swap via DEX, re-stake the result,
 //! all without closing the loan.
 //!
 //! # A real gap this module is built against
 //!
-//! The issue depends on issue #214 ("NFT collateral minting" — a debt-NFT
+//! The issue depends on issue #214 ("NFT collateral minting" â€” a debt-NFT
 //! representing an open loan against a staked position). That doesn't exist
 //! in this crate: `DebtNFT` is referenced by name in `vault.rs`'s imports
 //! but is never defined anywhere in `storage.rs`, and there is no minting,
@@ -20,13 +20,13 @@
 //! What *does* exist and is used here: `balance::get_dex_router`/
 //! `vault::DexRouterClient` (issue #205), and `DataKey::StakedAtLedger` as a
 //! stand-in signal for "this user has an open position" (not "is
-//! collateralized" specifically — there's no collateralization flag to
+//! collateralized" specifically â€” there's no collateralization flag to
 //! check). `CollateralSwapConfig` tracks the swap's own before/after state
 //! directly rather than updating a debt-NFT's `face_value`, since there's no
 //! debt NFT to update.
 //!
 //! Also unstakes/re-stakes are unavailable for the same reason documented
-//! throughout this PR (no live `stake`/`unstake` entrypoint) — this module
+//! throughout this PR (no live `stake`/`unstake` entrypoint) â€” this module
 //! swaps the *token* via the DEX router directly rather than round-tripping
 //! through unstake-then-stake, since that round trip has nothing to call.
 //!
@@ -48,7 +48,7 @@ const CONFIG_KEY: Symbol = symbol_short!("col_swp");
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct CollateralSwapConfig {
-    /// Placeholder until issue #214's debt-NFT tracking exists — see this
+    /// Placeholder until issue #214's debt-NFT tracking exists â€” see this
     /// module's doc comment. Always `0` today.
     pub debt_nft_id: u32,
     pub original_token: Address,
@@ -66,14 +66,14 @@ pub fn get_config(env: &Env, user: &Address) -> Option<CollateralSwapConfig> {
     env.storage().persistent().get(&(CONFIG_KEY, user.clone()))
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Swap `user`'s current position from its existing token into
     /// `new_stake_token` via the configured DEX router, without closing the
     /// position window.
     ///
     /// `min_new_amount` is slippage protection: the call reverts with
-    /// `SlippageExceeded` (mapped to `VaultError::InvalidRate` — see note
+    /// `SlippageExceeded` (mapped to `VaultError::InvalidRate` â€” see note
     /// below) if the router delivers less than that.
     ///
     /// See this module's doc comment for what "validates debt NFT exists
@@ -158,3 +158,10 @@ impl VaultContract {
         crate::collateral_swap::get_config(&env, &user)
     }
 }
+
+
+
+
+
+
+

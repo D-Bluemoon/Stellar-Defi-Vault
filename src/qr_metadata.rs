@@ -1,15 +1,16 @@
-//! Stake receipt QR metadata (issue #324).
+﻿//! Stake receipt QR metadata (issue #324).
 //!
 //! Read-only aggregator returning a structured payload representing a user's
 //! staking position, formatted for QR code generation by mobile wallets and
 //! frontend apps. Enables offline presentation of staking credentials without
-//! a real-time contract query per field. Pure read — no state changes.
+//! a real-time contract query per field. Pure read â€” no state changes.
 
 use soroban_sdk::{contractimpl, contracttype, Address, Env, String};
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient, CONTRACT_VERSION};
+use crate::vault::{VaultContract, VaultContractClient};
+use crate::vault::{ CONTRACT_VERSION};
 
 /// Structured staking-position payload for QR code generation.
 #[contracttype]
@@ -25,11 +26,11 @@ pub struct QRMetadata {
     pub generated_at: u32,
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Returns `user`'s current staking position formatted for QR code
     /// generation. Reverts with `PositionNotFound` if the user has no open
-    /// position. No auth required — this is a read-only query.
+    /// position. No auth required â€” this is a read-only query.
     ///
     /// `pool_name` is always empty since this contract has no pool-naming
     /// feature configured; `version` is `CONTRACT_VERSION`.
@@ -66,3 +67,10 @@ impl VaultContract {
         })
     }
 }
+
+
+
+
+
+
+

@@ -1,8 +1,8 @@
-//! Regulatory compliance report generator (issue #409).
+﻿//! Regulatory compliance report generator (issue #409).
 //!
 //! Produces a structured, point-in-time summary of pool operations for
 //! regulatory reporting use cases. This is a snapshot, not a ledger-range
-//! replay — the contract keeps no per-ledger transaction history, so fields
+//! replay â€” the contract keeps no per-ledger transaction history, so fields
 //! that would require reconstructing history (`peak_tvl`, `slash_events`,
 //! `dispute_events`, `pause_events`) are populated from the closest
 //! currently-tracked equivalent, documented per field below, rather than
@@ -19,7 +19,8 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Most reports retained in history (issue #409: "monthly cadence").
 pub const MAX_COMPLIANCE_REPORTS: u32 = 12;
@@ -59,7 +60,7 @@ fn set_history(env: &Env, history: &Vec<ComplianceReport>) {
     env.storage().instance().set(&HISTORY_KEY, history);
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Generate a structured compliance report covering pool operations,
     /// labeled with the given `[ledger_from, ledger_to]` range (issue #409).
@@ -76,7 +77,7 @@ impl VaultContract {
         admin::require_admin(&env)?;
 
         if ledger_from >= ledger_to {
-            return Err(VaultError::InvalidLedgerRange);
+            return Err(VaultError::InvalidRate);
         }
 
         let all_stakers = balance::get_all_stakers(&env);
@@ -113,7 +114,7 @@ impl VaultContract {
             kyc_approved_stakers,
             // No slash/dispute/pause event counters exist anywhere in this
             // contract to read from (same gap the issue's own notes call
-            // out for `kyc_approved_stakers`) — default to 0 rather than
+            // out for `kyc_approved_stakers`) â€” default to 0 rather than
             // adding new persistent counters this report doesn't otherwise
             // need.
             slash_events: 0,
@@ -159,3 +160,18 @@ impl VaultContract {
         Ok(get_history(&env))
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

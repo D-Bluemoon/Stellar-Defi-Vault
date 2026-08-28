@@ -1,22 +1,23 @@
-//! Bulk reward-pool top-up (issue #334).
+﻿//! Bulk reward-pool top-up (issue #334).
 //!
 //! Lets several reward suppliers top up the reward pool in a single
 //! transaction instead of each calling a top-up function separately.
-//! Processes each entry independently — one supplier failing (not
+//! Processes each entry independently â€” one supplier failing (not
 //! whitelisted or insufficient allowance) does not revert the others, and
 //! `bulk_supply_rewards` never reverts as a whole for that reason.
 //!
 //! # Storage
 //!
 //! Reuses `balance::get_reward_pool_balance`/`set_reward_pool_balance` and
-//! the existing per-user `Whitelisted` allowlist — no new storage keys.
+//! the existing per-user `Whitelisted` allowlist â€” no new storage keys.
 
 use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Vec};
 
 use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Most suppliers a single `bulk_supply_rewards` call may process.
 pub const MAX_BULK_SUPPLY_ENTRIES: u32 = 10;
@@ -46,7 +47,7 @@ fn is_whitelisted(env: &Env, supplier: &Address) -> bool {
         .unwrap_or(false)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Process up to `MAX_BULK_SUPPLY_ENTRIES` reward top-ups in one
     /// transaction. Each `supplier` must already be whitelisted and must have
@@ -54,7 +55,7 @@ impl VaultContract {
     /// at least their `amount`, since this call does not carry their
     /// signature. Reverts with `BatchTooLarge` if more than
     /// `MAX_BULK_SUPPLY_ENTRIES` entries are supplied; otherwise never
-    /// reverts — per-entry failures are reported in the returned vector.
+    /// reverts â€” per-entry failures are reported in the returned vector.
     pub fn bulk_supply_rewards(
         env: Env,
         entries: Vec<BulkSupplyEntry>,
@@ -121,3 +122,17 @@ impl VaultContract {
         Ok(results)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-//! Stake-weighted content curation voting.
+﻿//! Stake-weighted content curation voting.
 //!
 //! Stakers submit off-chain content items (identified by hash) and vote to
 //! approve or reject them. Vote weight equals the voter's staked amount.
@@ -15,7 +15,8 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::stake_quota;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Maximum number of open (not-yet-closed) content items.
 pub const MAX_OPEN_ITEMS: u32 = 100;
@@ -91,12 +92,12 @@ fn get_position_amount(env: &Env, user: &Address) -> Option<i128> {
     balance::shares_to_amount(total_shares, total_deposited, shares)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Submit a new content item for curation voting.
     ///
     /// Any staker with an active position can submit. The content is
-    /// identified by its hash — the contract never stores actual content.
+    /// identified by its hash â€” the contract never stores actual content.
     /// Reverts if 100 open items already exist.
     pub fn submit_content(
         env: Env,
@@ -151,7 +152,7 @@ impl VaultContract {
     /// Vote on a content item. Vote weight equals the voter's staked amount.
     ///
     /// `approve = true` counts toward acceptance; `false` counts toward
-    /// rejection. One vote per address per content item — double voting is
+    /// rejection. One vote per address per content item â€” double voting is
     /// rejected (overwrite not allowed).
     pub fn vote_on_content(
         env: Env,
@@ -263,3 +264,17 @@ impl VaultContract {
         get_items(&env)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

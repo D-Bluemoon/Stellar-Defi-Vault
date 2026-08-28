@@ -1,4 +1,4 @@
-//! Deterministic staking position fingerprint ("position DNA").
+﻿//! Deterministic staking position fingerprint ("position DNA").
 //!
 //! Combines a staker's address, stake amount, `staked_at_ledger`, and this
 //! contract's own address into a single 32-byte SHA256 digest. Useful for
@@ -24,7 +24,8 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Bytes, Env, Symbol};
 use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Persistent-storage key prefix for a user's originally captured DNA.
 const DNA_KEY: Symbol = symbol_short!("pos_dna");
@@ -55,7 +56,7 @@ pub fn get_original(env: &Env, user: &Address) -> Option<Bytes> {
     env.storage().persistent().get(&(DNA_KEY, user.clone()))
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// The deterministic fingerprint for `user`'s current position.
     ///
@@ -93,8 +94,22 @@ impl VaultContract {
     }
 
     /// The originally captured DNA for `user`, if `capture_position_dna` has
-    /// ever been called for them — unchanged even after the position changes.
+    /// ever been called for them â€” unchanged even after the position changes.
     pub fn get_original_position_dna(env: Env, user: Address) -> Option<Bytes> {
         crate::position_dna::get_original(&env, &user)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

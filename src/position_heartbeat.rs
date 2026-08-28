@@ -1,11 +1,11 @@
-//! Position heartbeat (issue #414).
+﻿//! Position heartbeat (issue #414).
 //!
 //! Boost multipliers are meant to reward actively-engaged stakers, not
 //! passive holders who staked once and never came back. This module adds an
 //! opt-in engagement requirement: a staker must send a periodic heartbeat
 //! (or take an action that counts as one) or their boost multiplier is
 //! suspended until they check back in. The base reward rate is never
-//! suspended — only the boost portion.
+//! suspended â€” only the boost portion.
 //!
 //! # Wiring
 //!
@@ -29,7 +29,9 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::{VaultContract, BOOST_BPS_BASE};
+use crate::VaultContract;
+use crate::vault::{ BOOST_BPS_BASE};
+use crate::VaultContractClient;
 
 /// Instance key: max ledgers a staker may go silent before their boost is
 /// suspended. `0` disables the heartbeat requirement entirely.
@@ -152,7 +154,7 @@ fn apply_heartbeat_boost(env: &Env, user: &Address, base: i128) -> i128 {
     base.saturating_mul(bps) / (BOOST_BPS_BASE as i128)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Sets the maximum number of ledgers a staker may go silent before
     /// their boost multiplier is suspended. Admin only. `0` disables the
@@ -258,3 +260,18 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

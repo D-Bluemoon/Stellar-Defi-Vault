@@ -1,4 +1,4 @@
-//! Slash disputes — lets a slashed staker challenge an admin slash on-chain,
+﻿//! Slash disputes ΓÇö lets a slashed staker challenge an admin slash on-chain,
 //! triggering a stake-weighted community vote to overturn or uphold it
 //! (issue #336). Builds on issue #20 (the slash mechanism).
 //!
@@ -7,26 +7,26 @@
 //! `DataKey` is at Soroban's 50-variant cap, so this module uses raw
 //! `Symbol`-keyed storage, matching `balance.rs`.
 //!
-//! # Known gap — please read before wiring this up
+//! # Known gap ΓÇö please read before wiring this up
 //!
 //! `slash()` (issue #20) is currently missing from `src/vault.rs` on `main`
-//! — most of that file past `join_waitlist` is gone due to an unrelated bad
+//! ΓÇö most of that file past `join_waitlist` is gone due to an unrelated bad
 //! merge (see PR description). That has real consequences for what this
 //! module can honestly do:
 //!
 //! - [`record_slash`] only creates the bookkeeping `SlashRecord` a dispute
 //!   needs (slash id, disputer-eligible user, amount, deadline). It does
-//!   **not** deduct the user's stake or shares — that's `slash()`'s job.
+//!   **not** deduct the user's stake or shares ΓÇö that's `slash()`'s job.
 //!   Once `slash()` is restored, it should call
 //!   `slash_dispute::record_slash(&env, &user, slash_id, amount)?` after
 //!   doing its own share deduction, and should **defer** sending the
 //!   slashed value to the treasury (`balance::get_slash_treasury()`) until
 //!   a dispute either resolves as upheld or the dispute window passes
-//!   untouched — otherwise "funds held in escrow during the dispute
+//!   untouched ΓÇö otherwise "funds held in escrow during the dispute
 //!   window" (an explicit acceptance criterion) isn't actually true.
 //! - [`VaultContract::resolve_dispute`] transfers the disputed `amount`
 //!   from the contract's own token balance to the slash treasury on an
-//!   uphold outcome — a real transfer, since staked tokens already sit in
+//!   uphold outcome ΓÇö a real transfer, since staked tokens already sit in
 //!   the contract regardless of whether `slash()` exists. On an overturn
 //!   outcome it does **not** restore anything to the user's position,
 //!   because nothing was deducted from it here in the first place (that
@@ -38,7 +38,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, String
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Ledgers a slashed user has to file a dispute after being slashed.
 const DEFAULT_DISPUTE_WINDOW: u32 = 50_000;
@@ -132,8 +133,8 @@ fn position_amount(env: &Env, user: &Address) -> Option<i128> {
 }
 
 /// Record that `user` was slashed `amount` under `slash_id`, at the current
-/// ledger — making it eligible for `dispute_slash`. Admin only (checked by
-/// the caller — see `VaultContract::record_slash`). See the module-level
+/// ledger ΓÇö making it eligible for `dispute_slash`. Admin only (checked by
+/// the caller ΓÇö see `VaultContract::record_slash`). See the module-level
 /// "Known gap" note: this performs no fund movement of its own.
 pub fn record_slash(env: &Env, user: &Address, slash_id: u32, amount: i128) -> Result<(), VaultError> {
     if amount <= 0 {
@@ -155,7 +156,7 @@ pub fn record_slash(env: &Env, user: &Address, slash_id: u32, amount: i128) -> R
     Ok(())
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Record that `user` was slashed `amount` under `slash_id`, making it
     /// eligible for `dispute_slash`. Admin only.
@@ -163,7 +164,7 @@ impl VaultContract {
     /// Exposed as its own entrypoint (rather than only the internal
     /// `slash_dispute::record_slash` helper) so a slash can be staged for
     /// disputing right now, since `slash()` itself doesn't currently exist
-    /// on `main` to call it directly — see the module-level "Known gap"
+    /// on `main` to call it directly ΓÇö see the module-level "Known gap"
     /// note in `slash_dispute.rs`.
     pub fn record_slash(env: Env, user: Address, slash_id: u32, amount: i128) -> Result<(), VaultError> {
         admin::require_admin(&env)?;
@@ -203,7 +204,7 @@ impl VaultContract {
             .persistent()
             .has(&(SLASH_TO_DISPUTE_KEY, slash_id))
         {
-            // Already disputed — one open dispute per slash.
+            // Already disputed ΓÇö one open dispute per slash.
             return Err(VaultError::AlreadyInitialized);
         }
 
@@ -281,9 +282,9 @@ impl VaultContract {
         Ok(())
     }
 
-    /// Resolve a dispute after its voting deadline. Anyone may call this —
+    /// Resolve a dispute after its voting deadline. Anyone may call this ΓÇö
     /// it just tallies the already-cast votes. On an overturn outcome
-    /// (`votes_overturn > votes_uphold`), no funds move — see the
+    /// (`votes_overturn > votes_uphold`), no funds move ΓÇö see the
     /// module-level "Known gap" note for why. On an uphold outcome, the
     /// disputed amount is transferred from the contract to the slash
     /// treasury, if one is configured.
@@ -345,3 +346,18 @@ impl VaultContract {
         load_slash_record(&env, slash_id)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

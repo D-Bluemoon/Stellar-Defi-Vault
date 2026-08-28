@@ -1,4 +1,4 @@
-//! Minimum reward-reserve ratio floor (issue #405).
+﻿//! Minimum reward-reserve ratio floor (issue #405).
 //!
 //! Enforces a hard floor under the reward token balance: it must always keep
 //! at least `ratio_bps` of total outstanding (accrued-but-unclaimed) reward
@@ -14,7 +14,7 @@
 //! additive. Per this issue's own notes, any amount deferred by the floor is
 //! queued into the *same* `epoch_reward_cap::DeferredReward(Address)` bucket
 //! epoch_reward_cap uses, claimable through the existing
-//! `claim_deferred_reward()` entrypoint — whichever guardrail (epoch cap or
+//! `claim_deferred_reward()` entrypoint â€” whichever guardrail (epoch cap or
 //! reserve floor) binds first, the overflow lands in one place.
 //!
 //! # Storage
@@ -29,7 +29,8 @@ use crate::balance;
 use crate::epoch_reward_cap;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::{VaultContract, VaultContractClient, BOOST_BPS_BASE, MAX_GINI_STAKERS};
+use crate::vault::{VaultContract, VaultContractClient};
+use crate::vault::{ BOOST_BPS_BASE, MAX_GINI_STAKERS};
 
 /// Instance-storage key for the configured floor ratio, in basis points.
 /// `0` (the default) disables the floor entirely.
@@ -40,7 +41,7 @@ const RATIO_KEY: Symbol = symbol_short!("mrr_bps");
 /// against.
 ///
 /// Bounded by `MAX_GINI_STAKERS`, matching `get_reward_gini_coefficient`'s
-/// scan bound (issue #275) — this is called from a claim path, so unlike
+/// scan bound (issue #275) â€” this is called from a claim path, so unlike
 /// that admin-gated query it does not revert once the bound is hit; it is a
 /// best-effort sum over the first `MAX_GINI_STAKERS` registered stakers.
 fn total_pending_rewards(env: &Env) -> i128 {
@@ -77,7 +78,7 @@ fn compute_available_for_claim(env: &Env) -> i128 {
     (pool_balance - floor).max(0)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Set the minimum reserve ratio, in basis points (e.g. `2000` = keep at
     /// least 20% of outstanding reward obligations in reserve at all times).
@@ -193,3 +194,10 @@ impl VaultContract {
         Ok(payable)
     }
 }
+
+
+
+
+
+
+

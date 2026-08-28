@@ -1,11 +1,12 @@
-//! Predicts when the pool will reach its TVL capacity cap, based on recent
+﻿//! Predicts when the pool will reach its TVL capacity cap, based on recent
 //! stake inflow (issue #402).
 
 use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec};
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 const INFLOW_KEY: Symbol = symbol_short!("cuf_infl");
 const LAST_WARN_KEY: Symbol = symbol_short!("cuf_warn");
@@ -55,15 +56,15 @@ fn sum_7day_inflow(env: &Env) -> i128 {
     total
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Record a stake inflow entry for the rolling 7-day forecast window.
     /// Requires the staker's own auth, matching `stake()`'s auth model.
     ///
     /// # Wiring
     /// There is no hook into the existing `stake()` to call this
-    /// automatically, so — matching the same documented gap
-    /// `governance_power_decay.rs` leaves for its own entrypoints — this is
+    /// automatically, so â€” matching the same documented gap
+    /// `governance_power_decay.rs` leaves for its own entrypoints â€” this is
     /// the call a modified `stake()` would make; it is directly callable and
     /// tested on its own in the meantime.
     pub fn record_stake_inflow(env: Env, user: Address, amount: i128) -> Result<(), VaultError> {
@@ -138,3 +139,17 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

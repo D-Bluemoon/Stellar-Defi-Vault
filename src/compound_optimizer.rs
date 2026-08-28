@@ -1,4 +1,4 @@
-//! Active compound-interval optimizer (issue #338).
+﻿//! Active compound-interval optimizer (issue #338).
 //!
 //! Distinct from issue #185 (read-only optimal-claim-frequency advisory):
 //! this lets a user opt in to having a keeper *execute* claim-and-restake at
@@ -6,13 +6,13 @@
 //! that interval is.
 //!
 //! Optimal interval = `sqrt(2 * tx_cost / (rate * position))`, adapted to
-//! integer ledgers — the classic EOQ-style tradeoff between "claim often,
+//! integer ledgers â€” the classic EOQ-style tradeoff between "claim often,
 //! pay tx cost every time" and "claim rarely, leave more rewards uncompounded
 //! for longer".
 //!
 //! # Wiring
 //!
-//! `trigger_optimized_compound` is specified to "claim and restake" — this
+//! `trigger_optimized_compound` is specified to "claim and restake" â€” this
 //! crate has no live `claim`/`stake`/`restake` entrypoint to call yet (see
 //! this PR's description). The function here does everything up to that
 //! point (auth, interval-elapsed gate, interval recalculation, event, and
@@ -29,7 +29,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Persistent-storage key prefix for a user's optimizer config.
 const CONFIG_KEY: Symbol = symbol_short!("cmp_opt");
@@ -83,7 +84,7 @@ fn isqrt(n: u128) -> u128 {
 /// amount, so it scales with position size automatically rather than one
 /// user's estimate going stale as they add/remove stake.
 ///
-/// Returns a floor of `1` ledger rather than `0` — an interval of zero would
+/// Returns a floor of `1` ledger rather than `0` â€” an interval of zero would
 /// mean "compound every ledger," which is never actually optimal once any
 /// tx cost is nonzero, and would make `trigger_optimized_compound`'s
 /// elapsed-check trivially always-true.
@@ -114,7 +115,7 @@ fn compute_optimal_interval(
     (interval as u32).max(1)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Opt in to the compound optimizer with an estimated tx cost, in basis
     /// points of position size.
@@ -237,3 +238,17 @@ impl VaultContract {
         crate::compound_optimizer::get_config(&env, &user)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

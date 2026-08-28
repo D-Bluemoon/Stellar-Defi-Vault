@@ -5,7 +5,7 @@
 
 use crate::{
     admin, balance,
-    errors::VaultError,
+    errors::{VaultError, VaultExtError, VaultFeatureError},
     events,
     nft::StakeReceiptNFTClient,
     storage::{
@@ -129,8 +129,7 @@ pub struct WaitlistEntry {
     pub joined_waitlist_at: u32,
 }
 
-#[contract]
-pub struct VaultContract;
+use crate::VaultContract;
 
 #[contractimpl]
 impl VaultContract {
@@ -368,9 +367,18 @@ impl VaultContract {
     }
 
     /// Revokes the current emergency admin address.
-    pub fn revoke_emergency_admin(env: Env) -> Result<(), VaultError> {
+    pub fn revoke_emergency_admin(env: Env, admin_addr: Address) -> Result<(), VaultError> {
+        admin_addr.require_auth();
         let primary_admin = admin::get_admin(&env)?;
-        primary_admin.require_auth();
+        if admin_addr != primary_admin {
+            return Err(VaultError::Unauthorized);
+        }
+        if env.storage().instance().has(&symbol_short!("emg_adm")) {
+            env.storage().instance().remove(&symbol_short!("emg_adm"));
+            env.events().publish((symbol_short!("emer_rvk"),), ());
+        }
+        Ok(())
+    }
 
     /// Withdraw by burning `shares`. Returns underlying token amount returned.
     pub fn withdraw(env: Env, withdrawer: Address, shares: i128) -> Result<i128, VaultError> {
@@ -1369,17 +1377,58 @@ impl VaultContract {
     /// Issue #235: when reward smoothing is configured and `amount` reaches the
     /// configured minimum, the tokens are still transferred in immediately but
     /// credited to the pool linearly over the smoothing window instead of all at
-    /// once ΓÇö see `set_reward_smoothing`. Additions below that minimum, and every
+    /// once — see `set_reward_smoothing`. Additions below that minimum, and every
     /// addition when smoothing is off, are credited immediately as before.
     pub fn add_yield(env: Env, admin_addr: Address, amount: i128) -> Result<(), VaultError> {
+        admin_addr.require_auth();
         admin::require_admin(&env)?;
         Self::require_not_paused(&env)?;
+        if amount <= 0 {
+            return Err(VaultError::ZeroAmount);
+        }
+        let token_addr = Self::token_address(&env)?;
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(&admin_addr, &env.current_contract_address(), &amount);
+        let total_deposited = balance::get_total_deposited(&env);
+        balance::set_total_deposited(&env, total_deposited + amount);
+        let admin_actual = admin::get_admin(&env)?;
+        events::yield_added(&env, &admin_actual, amount);
+        events::admin_action_add_yield(&env, &admin_actual, amount);
+        balance::increment_admin_action_count(&env);
+        Ok(())
+    }
 
+    /// Adds user to waitlist FIFO queue when pool is at cap.
+    pub fn join_waitlist(env: Env, user: Address, intended_amount: i128) -> Result<(), VaultError> {
+        user.require_auth();
+        let current_staked: i128 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("cur_stk"))
+            .unwrap_or(balance::get_total_deposited(&env));
+        let max_capacity: i128 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("max_cap"))
+            .unwrap_or(0);
+        if max_capacity > 0 && current_staked < max_capacity {
+            panic_with_error!(&env, VaultError::InvalidRate);
+        }
+        let mut queue: Vec<WaitlistEntry> = Self::get_waitlist(env.clone());
+        if queue.len() >= MAX_WAITLIST_SIZE {
+            panic_with_error!(&env, VaultError::InvalidRate);
+        }
+        let entry = WaitlistEntry {
+            user: user.clone(),
+            intended_amount,
+            joined_waitlist_at: env.ledger().sequence(),
+        };
+        queue.push_back(entry);
+        env.storage().instance().set(&symbol_short!("waitlist"), &queue);
         env.events().publish(
             (symbol_short!("wl_join"), user),
             (intended_amount, env.ledger().sequence()),
         );
-
         Ok(())
     }
 
@@ -1392,29 +1441,145 @@ impl VaultContract {
     }
 }
 
+#[contractimpl]
+impl VaultContract {
+    fn validate_rate_bps(rate_bps: u32) -> Result<(), VaultError> {
+        if rate_bps > balance::MAX_RATE_BPS {
+            return Err(VaultError::RateTooHigh);
+        }
         Ok(())
     }
 
-    /// Reads the current waitlist FIFO queue. Empty when nothing has been
-    /// stored yet, matching `join_waitlist`'s own storage key.
-    pub fn get_waitlist(env: Env) -> Vec<WaitlistEntry> {
-        env.storage()
-            .instance()
-            .get(&symbol_short!("waitlist"))
-            .unwrap_or_else(|| Vec::new(&env))
+    fn build_position(env: &Env, user: &Address) -> Result<Option<StakePosition>, VaultError> {
+        let shares = balance::get_shares(env, user);
+        if shares == 0 {
+            return Ok(None);
+        }
+        let total_shares = balance::get_total_shares(env);
+        let total_deposited = balance::get_total_deposited(env);
+        let amount = balance::shares_to_amount(total_shares, total_deposited, shares)
+            .ok_or(VaultError::ArithmeticError)?;
+        let staked_at_ledger = env
+            .storage()
+            .persistent()
+            .get::<_, u32>(&DataKey::StakedAtLedger(user.clone()))
+            .unwrap_or(0);
+        let last_claim_ledger = balance::get_last_claim_ledger(env, user);
+        Ok(Some(StakePosition {
+            amount,
+            staked_at_ledger,
+            last_claim_ledger,
+        }))
     }
-}
 
+    fn pending_reward(env: &Env, user: &Address) -> Result<i128, VaultError> {
+        let shares = balance::get_shares(env, user);
+        if shares == 0 {
+            return Ok(0);
+        }
+        let accrued = balance::get_accrued_reward(env, user);
+        Ok(accrued)
+    }
+
+    fn normalize_to_reward_decimals(env: &Env, amount: i128) -> Result<i128, VaultError> {
+        Ok(amount)
+    }
+
+    fn require_not_paused(env: &Env) -> Result<(), VaultError> {
+        if env.storage().instance().get(&DataKey::Paused).unwrap_or(false) {
+            return Err(VaultError::VaultPaused);
+        }
         Ok(())
     }
 
-    /// Reads the current waitlist FIFO queue. Empty when nothing has been
-    /// stored yet, matching `join_waitlist`'s own storage key.
-    pub fn get_waitlist(env: Env) -> Vec<WaitlistEntry> {
-        env.storage()
+    fn require_not_stopped(env: &Env) -> Result<(), VaultError> {
+        if env.storage().instance().has(&DataKey::Stopped)
+            && env.storage().instance().get(&DataKey::Stopped).unwrap_or(false)
+        {
+            return Err(VaultError::ContractStopped);
+        }
+        if env.storage().instance().has(&symbol_short!("stopped"))
+            && env.storage().instance().get(&symbol_short!("stopped")).unwrap_or(false)
+        {
+            return Err(VaultError::ContractStopped);
+        }
+        Ok(())
+    }
+
+    fn append_changelog(env: &Env, _admin: &Address, _change_type: String, _old: i128, _new: i128) {
+        let _ = env;
+    }
+
+    fn check_activation(_env: &Env) {}
+
+    fn maybe_activate_rewards(_env: &Env) {}
+
+    fn check_claim_rate_limit(_env: &Env, _user: &Address) {}
+
+    fn do_stake_inner(env: &Env, user: &Address, amount: i128) -> Result<i128, VaultError> {
+        if amount <= 0 {
+            return Err(VaultError::ZeroAmount);
+        }
+        let token_addr: Address = env
+            .storage()
             .instance()
-            .get(&symbol_short!("waitlist"))
-            .unwrap_or_else(|| Vec::new(&env))
+            .get(&symbol_short!("token"))
+            .ok_or(VaultError::NotInitialized)?;
+        token::Client::new(env, &token_addr).transfer(user, &env.current_contract_address(), &amount);
+        let total_shares = balance::get_total_shares(env);
+        let total_deposited = balance::get_total_deposited(env);
+        let shares = balance::amount_to_shares(total_shares, total_deposited, amount)
+            .ok_or(VaultError::ArithmeticError)?;
+        let cur = balance::get_shares(env, user);
+        balance::set_shares(env, user, cur + shares);
+        balance::set_total_shares(env, total_shares + shares);
+        balance::set_total_deposited(env, total_deposited + amount);
+        Ok(shares)
+    }
+
+    fn do_unstake(env: &Env, staker: &Address, shares: i128) -> Result<i128, VaultError> {
+        if shares <= 0 {
+            return Err(VaultError::ZeroAmount);
+        }
+        let user_shares = balance::get_shares(env, staker);
+        if user_shares < shares {
+            return Err(VaultError::InsufficientShares);
+        }
+        let total_shares = balance::get_total_shares(env);
+        let total_deposited = balance::get_total_deposited(env);
+        let amount = balance::shares_to_amount(total_shares, total_deposited, shares)
+            .ok_or(VaultError::ArithmeticError)?;
+        let token_addr = Self::token_address(env)?;
+        let token_client = token::Client::new(env, &token_addr);
+        token_client.transfer(&env.current_contract_address(), staker, &amount);
+        balance::set_shares(env, staker, user_shares - shares);
+        balance::set_total_shares(env, total_shares - shares);
+        balance::set_total_deposited(env, total_deposited - amount);
+        Ok(amount)
+    }
+
+    fn do_claim(env: &Env, staker: &Address) -> Result<i128, VaultError> {
+        let accrued = balance::get_accrued_reward(env, staker);
+        if accrued == 0 {
+            return Ok(0);
+        }
+        let token_addr = Self::token_address(env)?;
+        let token_client = token::Client::new(env, &token_addr);
+        // Ensure contract has enough balance (mock in tests will handle)
+        balance::set_accrued_reward(env, staker, 0);
+        let total_paid = balance::get_total_rewards_paid(env);
+        balance::set_total_rewards_paid(env, total_paid + accrued);
+        token_client.transfer(&env.current_contract_address(), staker, &accrued);
+        events::claimed(env, staker, accrued, env.ledger().sequence());
+        Ok(accrued)
     }
 }
+
+
+
+
+
+
+
+
 

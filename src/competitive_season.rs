@@ -1,4 +1,4 @@
-//! Competitive staking seasons.
+﻿//! Competitive staking seasons.
 //!
 //! Resets competitive standing on a periodic cycle instead of leaving a
 //! single static leaderboard permanently dominated by early large stakers.
@@ -21,7 +21,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 /// Number of top stakers snapshotted at season end.
 pub const TOP_N: u32 = 10;
@@ -81,7 +82,7 @@ fn top_stakers(env: &Env, n: u32) -> Vec<(Address, i128)> {
     ranked
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Starts a new competitive season lasting `duration_ledgers`, with
     /// `prize_amount` set aside for the eventual winner. Admin only.
@@ -197,3 +198,17 @@ impl VaultContract {
             .unwrap_or(Vec::new(&env))
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

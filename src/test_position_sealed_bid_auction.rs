@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 //! Tests for the sealed-bid position auction (issue #403).
 
 extern crate std;
@@ -11,7 +11,7 @@ use soroban_sdk::{
 use crate::{
     balance,
     position_sealed_bid_auction::compute_bid_hash,
-    vault::{VaultContract, VaultContractClient},
+    crate::{VaultContract, VaultContractClient},
 };
 
 fn set_ledger(env: &Env, sequence: u32) {
@@ -197,3 +197,4 @@ fn only_one_active_auction_per_seller() {
         .try_list_position_for_auction(&f.alice, &100, &100, &100);
     assert!(result.is_err());
 }
+

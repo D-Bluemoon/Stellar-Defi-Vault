@@ -1,4 +1,4 @@
-//! Minimum position age before boost multipliers activate (issue #401).
+﻿//! Minimum position age before boost multipliers activate (issue #401).
 //!
 //! Prevents stakers from front-running a boost campaign by staking just
 //! before it starts and immediately benefiting. Age is measured from
@@ -7,7 +7,7 @@
 //! # Wiring
 //!
 //! Splicing this into the live boost-multiplier computation inside
-//! `calc_pending_reward` isn't done here — matching the same documented gap
+//! `calc_pending_reward` isn't done here â€” matching the same documented gap
 //! `governance_power_decay.rs` and `transfer_cooldown.rs` leave for their own
 //! entrypoints. `is_boost_eligible` is the read a boost-multiplier
 //! computation should gate on (apply the multiplier only when it returns
@@ -20,7 +20,8 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::VaultContractClient;
 
 const MIN_AGE_KEY: Symbol = symbol_short!("bam_age");
 const ACTIVATED_KEY: Symbol = symbol_short!("bam_act");
@@ -36,7 +37,7 @@ fn staked_at_ledger(env: &Env, user: &Address) -> u32 {
         .unwrap_or(0)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Set the minimum position age (in ledgers) before any boost
     /// multiplier applies. Admin only. `0` disables the gate (default).
@@ -105,3 +106,17 @@ impl VaultContract {
         eligible
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
