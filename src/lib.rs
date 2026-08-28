@@ -38,6 +38,7 @@ pub mod governance_power_decay; // issue #404 — governance vote weight decay f
 pub mod insurance; // issue #289 — pool health insurance
 pub mod keeper_registry; // approved-keeper registry with performance stats
 pub mod minimum_reserve_ratio; // issue #405 — minimum reward-reserve ratio floor
+pub mod minimum_unstake_amount; // issue #441 — minimum unstake amount preventing dust unstakes
 pub mod mutual_insurance_pool; // issue #366 — peer mutual insurance pool
 pub mod nft_fractionalize; // NFT receipt fractionalization
 pub mod nft_redeem; // issue #410 — burn-and-redeem NFT-triggered position exit

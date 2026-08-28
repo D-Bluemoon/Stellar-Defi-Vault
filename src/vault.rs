@@ -347,7 +347,13 @@ impl VaultContract {
     }
 
     /// Unstake by burning `shares`. This is an alias for `withdraw`.
+    ///
+    /// Rejects the unstake with `BelowMinimumUnstake` when an admin-configured
+    /// minimum unstake amount is active and `shares` is below it, unless this
+    /// is a full position exit (issue #441).
     pub fn unstake(env: Env, staker: Address, shares: i128) -> Result<i128, VaultError> {
+        let position_amount = balance::get_shares(&env, &staker);
+        crate::minimum_unstake_amount::enforce_min_unstake(&env, shares, position_amount)?;
         Self::do_unstake(&env, &staker, shares)
     }
 
