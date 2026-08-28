@@ -125,3 +125,6 @@ mod test_capacity_forecast;
 
 #[cfg(test)]
 mod test_issues_419_422; // issue #419, #420, #421, #422
+
+#[cfg(test)]
+mod test_issues_439_442; // issue #439, #440, #441, #442
