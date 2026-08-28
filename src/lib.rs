@@ -31,6 +31,7 @@ pub mod compound_optimizer; // issue #338 — active claim/restake interval opti
 pub mod content_curation; // content curation stake-weighted voting
 pub mod daily_token_velocity_limiter; // issue #411 — pool-wide daily reward outflow cap
 pub mod dex_limit_order_buyback; // issue #421 — limit order buyback mechanism
+pub mod emission_schedule_history; // issue #440 — sampled emission-rate history for charting
 pub mod epoch_alignment; // issue #342 — calendar-style epoch boundary alignment
 pub mod epoch_reward_cap; // per-epoch reward outflow cap with deferred overflow claims
 pub mod governance_power_decay; // issue #404 — governance vote weight decay for long-inactive voters
