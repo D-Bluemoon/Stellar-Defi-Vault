@@ -1,6 +1,6 @@
-use soroban_sdk::{
-    contract, contractimpl, panic_with_error, symbol_short, token, Address, Bytes, Env, String,
-    Symbol, Vec,
+﻿use soroban_sdk::{
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Bytes,
+    Env, String, Symbol, Vec,
 };
 
 use crate::{
@@ -29,7 +29,7 @@ use crate::{
 };
 
 /// Minimal interface for the Stellar DEX router `swap_and_stake` calls into
-/// (issue #205). This contract doesn't own or embed a DEX — it's a thin
+/// (issue #205). This contract doesn't own or embed a DEX ΓÇö it's a thin
 /// client for whatever router contract the admin configures via
 /// `set_dex_router()`, so any router implementing this same function
 /// signature (a common shape for Soroban AMM/router contracts) works.
@@ -86,7 +86,7 @@ pub(crate) const TOP_UP_COST: u64 = 50_000;
 pub(crate) const REPUTATION_SUB_SCORE_MAX: u32 = 2500;
 /// Points deducted per lifetime claim (100 bps = 1% of max consistency score).
 pub(crate) const REPUTATION_CLAIM_DECAY_BPS: u32 = 100;
-/// Longest window a reward addition may be smoothed over — one year (issue #235).
+/// Longest window a reward addition may be smoothed over ΓÇö one year (issue #235).
 pub(crate) const MAX_SMOOTHING_PERIOD_LEDGERS: u32 = STELLAR_LEDGERS_PER_YEAR;
 /// Deepest referral level `referral_tree_data` will walk (issue #236).
 pub(crate) const MAX_REFERRAL_TREE_DEPTH: u32 = 3;
@@ -118,6 +118,16 @@ pub(crate) const MAX_GINI_STAKERS: u32 = 100;
 pub(crate) const MAX_SEASONS: u32 = 10;
 /// Longest allowed `set_staker_bio()` bio, in bytes (issue #274).
 pub(crate) const MAX_BIO_LEN: u32 = 160;
+/// Max waitlist size cap (Acceptance Criteria #7)
+pub(crate) const MAX_WAITLIST_SIZE: u32 = 100;
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WaitlistEntry {
+    pub user: Address,
+    pub intended_amount: i128,
+    pub joined_waitlist_at: u32,
+}
 
 #[contract]
 pub struct VaultContract;
@@ -230,10 +240,32 @@ impl VaultContract {
     }
 
     /// Sets or replaces the secondary emergency admin address.
-    pub fn set_emergency_admin(env: Env, new_emergency_admin: Address) -> Result<(), VaultError> {
+    pub fn set_emergency_admin(env: Env, admin_addr: Address, new_emergency_admin: Address) -> Result<(), VaultError> {
+        admin_addr.require_auth();
         let primary_admin = admin::get_admin(&env)?;
-        primary_admin.require_auth();
+        if admin_addr != primary_admin {
+            return Err(VaultError::Unauthorized);
+        }
+        env.storage()
+            .instance()
+            .set(&symbol_short!("emg_adm"), &new_emergency_admin);
+        env.events()
+            .publish((symbol_short!("emer_set"),), new_emergency_admin);
+        Ok(())
+    }
 
+    /// Admin: serialize the full pool state for migrating to a new contract
+    /// instance (issue #203).
+    pub fn export_state(env: Env, admin_addr: Address) -> Result<MigrationExport, VaultError> {
+        admin_addr.require_auth();
+        admin::require_admin(&env)?;
+        let all_stakers = balance::get_all_stakers(&env);
+        let mut all_positions: Vec<(Address, StakePosition)> = Vec::new(&env);
+        for staker in all_stakers.iter() {
+            if let Ok(Some(position)) = Self::build_position(&env, &staker) {
+                all_positions.push_back((staker, position));
+            }
+        }
         let token = Self::token_address(&env).unwrap_or_else(|_| admin_addr.clone());
         let export = MigrationExport {
             admin: admin_addr.clone(),
@@ -245,7 +277,6 @@ impl VaultContract {
             paused: Self::paused(&env),
             all_positions: all_positions.clone(),
         };
-
         events::state_exported(
             &env,
             &admin_addr,
@@ -258,7 +289,7 @@ impl VaultContract {
     /// Re-initialize a *fresh, uninitialized* contract from a
     /// `MigrationExport` (issue #203). Reverts with `AlreadyInitialized` if
     /// this contract has already been initialized (via `initialize()` or a
-    /// prior `import_state()` call) — this is strictly a one-shot bootstrap,
+    /// prior `import_state()` call) ΓÇö this is strictly a one-shot bootstrap,
     /// not a merge/update operation.
     ///
     /// Scope note: `MigrationExport` records each position's token `amount`
@@ -266,7 +297,7 @@ impl VaultContract {
     /// count, and doesn't carry the exporting contract's total_shares/
     /// total_deposited ratio. Since this only ever runs against a brand-new
     /// contract (total_shares = total_deposited = 0), imported positions are
-    /// seeded at 1:1 shares-to-amount parity — exactly matching what a fresh
+    /// seeded at 1:1 shares-to-amount parity ΓÇö exactly matching what a fresh
     /// `stake()` of that amount would produce on an empty pool. This is only
     /// fully lossless if the exporting contract's own share ratio was also
     /// 1:1 (e.g. no compounding/slashing ever changed it); a pool with a
@@ -371,7 +402,7 @@ impl VaultContract {
     /// Scope note: this contract's existing storage model (`ShareBalance`,
     /// `StakedAtLedger`, `LastClaimLedger`, all keyed directly by `Address`)
     /// supports exactly one position per user throughout the whole contract
-    /// (stake/unstake/claim/leaderboard/NFT receipts/etc.) — the issue's own
+    /// (stake/unstake/claim/leaderboard/NFT receipts/etc.) ΓÇö the issue's own
     /// notes acknowledge this function "introduces" multi-position storage.
     /// Migrating every one of those call sites to a `Vec<StakePosition>`
     /// model is a large, invasive change with wide blast radius across an
@@ -432,7 +463,7 @@ impl VaultContract {
     }
 
     /// Read-only: the caller's additional positions created via
-    /// `position_split()`. Does not include the primary position — combine
+    /// `position_split()`. Does not include the primary position ΓÇö combine
     /// with `shares_of(user)` / `get_position(user)` for the full picture.
     pub fn get_split_positions(env: Env, user: Address) -> Vec<StakePosition> {
         balance::get_split_positions(&env, &user)
@@ -448,7 +479,7 @@ impl VaultContract {
     /// Returns the token amount transferred. Returns 0 if there is nothing to claim.
     pub fn claim(env: Env, staker: Address) -> Result<i128, VaultError> {
         staker.require_auth();
-        // Issue #201: rate limit applies to explicit claim() calls only —
+        // Issue #201: rate limit applies to explicit claim() calls only ΓÇö
         // not to the internal do_claim() invoked by stake_and_claim() or
         // NFT-transfer-with-rewards flows, which have their own callers'
         // auth/rate semantics and shouldn't be collaterally throttled by a
@@ -528,7 +559,7 @@ impl VaultContract {
     /// (Soroban doesn't expose per-key storage size directly): ~40 bytes for
     /// a small scalar instance key (i128/u32/bool/Address + XDR/key
     /// overhead), ~96 bytes for a StakePosition-shaped persistent entry
-    /// (i128 + 2×u32 + Address key + overhead), ~64 bytes for the assorted
+    /// (i128 + 2├ùu32 + Address key + overhead), ~64 bytes for the assorted
     /// smaller "other" persistent entries.
     pub fn storage_usage_report(env: Env) -> StorageUsageReport {
         let inst = env.storage().instance();
@@ -649,7 +680,7 @@ impl VaultContract {
     /// Returns positions for a list of addresses in a single contract call.
     ///
     /// Results are returned in the same order as the input list. `None` is returned
-    /// for users with no active position — the call never reverts on a missing user.
+    /// for users with no active position ΓÇö the call never reverts on a missing user.
     /// Reverts with `BatchTooLarge` when more than 20 addresses are supplied to prevent
     /// excessive compute costs per invocation. No auth required.
     pub fn batch_position_query(
@@ -758,7 +789,7 @@ impl VaultContract {
         // it must report zero rather than a balance it cannot yet claim. The
         // gate is applied here, at the single read-through point, so the query
         // and the accrual path cannot disagree. Once the cliff passes, `raw`
-        // already covers the whole period since `staked_at_ledger` — that is
+        // already covers the whole period since `staked_at_ledger` ΓÇö that is
         // the retroactive accrual the issue calls for, and it falls out of
         // gating rather than needing a separate recomputation.
         let gated = crate::vesting_cliff::apply_cliff(&env, &user, raw);
@@ -778,7 +809,7 @@ impl VaultContract {
     /// `Gini = (2 * sum(i * x_i)) / (n * sum(x_i)) - (n + 1) / n`
     ///
     /// scaled by 10 000 and computed entirely in integer arithmetic (this is
-    /// a bps *approximation* of the exact, real-valued Gini coefficient —
+    /// a bps *approximation* of the exact, real-valued Gini coefficient ΓÇö
     /// truncating integer division introduces at most a few bps of error).
     /// Returns 0 if fewer than 2 active stakers, since a single staker (or
     /// none) is trivially "equal". Reverts with `TooManyStakers` above
@@ -873,10 +904,10 @@ impl VaultContract {
         Ok(gini_bps)
     }
 
-    // ── Issue #274: staker bio ───────────────────────────────────────────────
+    // ΓöÇΓöÇ Issue #274: staker bio ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     /// Attach a short free-text bio to the caller's staking position (issue
-    /// #274). Requires an active position (nonzero shares) — use
+    /// #274). Requires an active position (nonzero shares) ΓÇö use
     /// `stake()`/`stake_and_claim()` first. Max `MAX_BIO_LEN` (160) bytes;
     /// overwrites any previous bio wholesale.
     pub fn set_staker_bio(env: Env, user: Address, bio: String) -> Result<(), VaultFeatureError> {
@@ -896,14 +927,14 @@ impl VaultContract {
 
     /// Read-only query for a staker's bio (issue #274). Returns `None` if the
     /// user never set one, or cleared it via `clear_staker_bio()`. Unlike
-    /// `set_staker_bio()`, no active position is required to read one — a
+    /// `set_staker_bio()`, no active position is required to read one ΓÇö a
     /// bio persists after the staker fully unstakes.
     pub fn get_staker_bio(env: Env, user: Address) -> Option<String> {
         balance::get_staker_bio(&env, &user)
     }
 
     /// Removes the caller's bio, if any (issue #274). Unlike
-    /// `set_staker_bio()`, this does not require an active position — a
+    /// `set_staker_bio()`, this does not require an active position ΓÇö a
     /// former staker can still clear a bio they set before unstaking.
     pub fn clear_staker_bio(env: Env, user: Address) -> Result<(), VaultFeatureError> {
         user.require_auth();
@@ -925,7 +956,7 @@ impl VaultContract {
     /// Read-only: cumulative volume ever staked across the pool's lifetime
     /// (issue #163). Unlike `total_deposited`/`vault_state()` (current TVL,
     /// which goes back down on `unstake`), this counter only ever
-    /// increases — it measures lifetime volume, not current holdings. No
+    /// increases ΓÇö it measures lifetime volume, not current holdings. No
     /// auth required.
     pub fn get_total_ever_staked(env: Env) -> i128 {
         balance::get_total_ever_staked(&env)
@@ -934,8 +965,8 @@ impl VaultContract {
     /// Admin: configure proportional fee-splitting recipients (issue #197).
     /// Shares must sum to exactly 10 000 bps (100%); max 5 recipients.
     /// Applies to `unstake`'s fee collection (`claim` has no separate fee
-    /// mechanism in this contract today — only reward payment and the
-    /// insurance-fund retention from issue #199 — so there's nothing to
+    /// mechanism in this contract today ΓÇö only reward payment and the
+    /// insurance-fund retention from issue #199 ΓÇö so there's nothing to
     /// split there; this only wires into the one fee that actually exists).
     /// Pass an empty `Vec` to disable splitting and restore the existing
     /// behavior (fee accumulates in the contract as before).
@@ -970,7 +1001,7 @@ impl VaultContract {
 
     /// Splits `fee_amount` proportionally across `recipients` and transfers
     /// each share directly (unlike `redistribute_penalty`'s pending-balance
-    /// credit — issue #197 asks for these to be paid out, not accrued).
+    /// credit ΓÇö issue #197 asks for these to be paid out, not accrued).
     /// Rounding dust goes to the first recipient (per the issue's notes).
     fn distribute_fee(
         env: &Env,
@@ -1007,7 +1038,7 @@ impl VaultContract {
     }
 
     /// Admin: set the ledger delay required before a queued action becomes
-    /// executable (issue #195). `0` disables the timelock — `queue_action`
+    /// executable (issue #195). `0` disables the timelock ΓÇö `queue_action`
     /// then produces an immediately-executable entry.
     pub fn set_timelock_delay(env: Env, ledgers: u32) -> Result<(), VaultError> {
         admin::require_admin(&env)?;
@@ -1067,7 +1098,7 @@ impl VaultContract {
     /// Admin: execute a queued action once its timelock delay has elapsed
     /// (issue #195). Only `AdminAction::SetRewardRate` (params: 4-byte
     /// big-endian `u32` rate) and `Pause`/`Unpause` (no params) are actually
-    /// dispatched — see `PendingAction`'s doc comment for why other action
+    /// dispatched ΓÇö see `PendingAction`'s doc comment for why other action
     /// types, while queueable, revert here with `ActionNotFound`.
     pub fn execute_action(env: Env, action_id: u32) -> Result<(), VaultExtError> {
         admin::require_admin(&env)?;
@@ -1140,7 +1171,7 @@ impl VaultContract {
     ///
     /// Scope note: the issue says this "replaces the single admin model
     /// entirely" and warns to "design carefully to avoid locking the
-    /// contract" — replacing every one of this contract's ~40+
+    /// contract" ΓÇö replacing every one of this contract's ~40+
     /// `admin::require_admin()` call sites with multisig-gated dispatch in
     /// the time available for this change is a large, high-blast-radius
     /// rewrite that risks exactly the "locked contract" outcome the issue
@@ -1157,7 +1188,7 @@ impl VaultContract {
     ///
     /// Callable once; does not require the existing single admin's
     /// authorization (by design, so a multisig group can be bootstrapped
-    /// independently) — but as with any admin setup call, whoever can call
+    /// independently) ΓÇö but as with any admin setup call, whoever can call
     /// this first controls the multisig group, so it should be invoked
     /// immediately after deployment in the same way `initialize()` is.
     pub fn initialize_multisig(
@@ -1245,7 +1276,7 @@ impl VaultContract {
     }
 
     /// Anyone may execute a proposal once its approval threshold is reached
-    /// (issue #196) — dispatch is what's actually gated by the multisig, not
+    /// (issue #196) ΓÇö dispatch is what's actually gated by the multisig, not
     /// the call itself.
     pub fn execute_proposal(env: Env, proposal_id: u32) -> Result<(), VaultExtError> {
         let config = balance::get_multisig_config(&env).ok_or(VaultExtError::NotAMultisigAdmin)?;
@@ -1338,7 +1369,7 @@ impl VaultContract {
     /// Issue #235: when reward smoothing is configured and `amount` reaches the
     /// configured minimum, the tokens are still transferred in immediately but
     /// credited to the pool linearly over the smoothing window instead of all at
-    /// once — see `set_reward_smoothing`. Additions below that minimum, and every
+    /// once ΓÇö see `set_reward_smoothing`. Additions below that minimum, and every
     /// addition when smoothing is off, are credited immediately as before.
     pub fn add_yield(env: Env, admin_addr: Address, amount: i128) -> Result<(), VaultError> {
         admin::require_admin(&env)?;

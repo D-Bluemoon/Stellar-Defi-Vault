@@ -134,7 +134,7 @@ pub fn consume_quota(env: &Env, user: &Address, operations: u32) -> Result<(), V
 
     let new_used = usage.used.saturating_add(operations);
     if new_used > total {
-        return Err(VaultError::QuotaExhausted);
+        return Err(VaultError::TooManyStakers);
     }
 
     usage.used = new_used;

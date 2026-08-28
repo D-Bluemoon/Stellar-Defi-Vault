@@ -92,7 +92,7 @@ pub fn remaining(env: &Env, user: &Address) -> u32 {
 /// "Known gap" note.
 pub fn assert_transfer_cooldown_cleared(env: &Env, user: &Address) -> Result<(), VaultError> {
     if remaining(env, user) > 0 {
-        return Err(VaultError::TransferCooldownActive);
+        return Err(VaultError::UseCooldownFlow);
     }
     Ok(())
 }

@@ -1,5 +1,5 @@
 use crate::storage::AdminAction;
-use soroban_sdk::{symbol_short, Address, Env};
+use soroban_sdk::{symbol_short, Address, Env, Symbol};
 
 pub fn deposit(env: &Env, depositor: &Address, amount: i128, shares_minted: i128, ledger: u32) {
     let topics = (symbol_short!("deposit"), depositor);

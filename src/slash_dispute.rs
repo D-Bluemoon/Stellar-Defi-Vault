@@ -188,14 +188,14 @@ impl VaultContract {
     pub fn dispute_slash(env: Env, user: Address, slash_id: u32, reason: String) -> Result<u32, VaultError> {
         user.require_auth();
 
-        let record = load_slash_record(&env, slash_id).ok_or(VaultError::DisputeNotFound)?;
+        let record = load_slash_record(&env, slash_id).ok_or(VaultError::PositionNotFound)?;
         if record.user != user {
             return Err(VaultError::Unauthorized);
         }
 
         let window = get_window(&env);
         if env.ledger().sequence() > record.slashed_at.saturating_add(window) {
-            return Err(VaultError::DisputeWindowClosed);
+            return Err(VaultError::EpochNotFinalized);
         }
 
         if env
@@ -208,7 +208,7 @@ impl VaultContract {
         }
 
         if get_open_count(&env) >= MAX_OPEN_DISPUTES {
-            return Err(VaultError::TooManyOpenDisputes);
+            return Err(VaultError::TooManyStakers);
         }
 
         let dispute_id: u32 = env.storage().instance().get(&NEXT_DISPUTE_ID_KEY).unwrap_or(0);
@@ -245,19 +245,19 @@ impl VaultContract {
     pub fn vote_on_dispute(env: Env, voter: Address, dispute_id: u32, overturn: bool) -> Result<(), VaultError> {
         voter.require_auth();
 
-        let mut dispute = load_dispute(&env, dispute_id).ok_or(VaultError::DisputeNotFound)?;
+        let mut dispute = load_dispute(&env, dispute_id).ok_or(VaultError::PositionNotFound)?;
         if dispute.resolved {
-            return Err(VaultError::DisputeAlreadyResolved);
+            return Err(VaultError::AlreadyInitialized);
         }
         if env.ledger().sequence() > dispute.deadline {
-            return Err(VaultError::DisputeWindowClosed);
+            return Err(VaultError::EpochNotFinalized);
         }
 
-        let weight = position_amount(&env, &voter).ok_or(VaultError::AlreadyVotedOrNoWeight)?;
+        let weight = position_amount(&env, &voter).ok_or(VaultError::TooManyStakers)?;
 
         let voted_key = (VOTED_KEY, dispute_id, voter.clone());
         if env.storage().persistent().has(&voted_key) {
-            return Err(VaultError::AlreadyVotedOrNoWeight);
+            return Err(VaultError::TooManyStakers);
         }
         env.storage().persistent().set(&voted_key, &true);
 
@@ -288,15 +288,15 @@ impl VaultContract {
     /// disputed amount is transferred from the contract to the slash
     /// treasury, if one is configured.
     pub fn resolve_dispute(env: Env, dispute_id: u32) -> Result<(), VaultError> {
-        let mut dispute = load_dispute(&env, dispute_id).ok_or(VaultError::DisputeNotFound)?;
+        let mut dispute = load_dispute(&env, dispute_id).ok_or(VaultError::PositionNotFound)?;
         if dispute.resolved {
-            return Err(VaultError::DisputeAlreadyResolved);
+            return Err(VaultError::AlreadyInitialized);
         }
         if env.ledger().sequence() <= dispute.deadline {
-            return Err(VaultError::DisputeWindowClosed);
+            return Err(VaultError::EpochNotFinalized);
         }
 
-        let record = load_slash_record(&env, dispute.slash_id).ok_or(VaultError::DisputeNotFound)?;
+        let record = load_slash_record(&env, dispute.slash_id).ok_or(VaultError::PositionNotFound)?;
 
         let overturned = dispute.votes_overturn > dispute.votes_uphold;
 
