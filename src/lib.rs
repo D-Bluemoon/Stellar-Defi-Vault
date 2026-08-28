@@ -3,6 +3,8 @@
 mod admin;
 pub mod admin_succession; // designated heir admin activated on prolonged inactivity
 pub mod anti_dump_claim_cooldown; // issue #365 — cooldown after large reward claims
+pub mod api_key; // on-chain API key system for whitelabel pool integrations
+pub mod api_key_contract; // contract interface for API key management
 mod balance;
 mod errors;
 mod events;
