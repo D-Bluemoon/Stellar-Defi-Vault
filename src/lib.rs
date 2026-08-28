@@ -50,6 +50,7 @@ pub mod position_shadow_clone; // issue #420 — read-only shadow clone of a pos
 pub mod price_oracle; // issue #290 — position price oracle
 pub mod qr_metadata; // issue #324 — stake receipt QR metadata
 pub mod reputation_decay; // reputation score time-decay mechanism
+pub mod stake_gated_ipfs_storage; // issue #439 — stake-gated IPFS content-hash storage
 pub mod staker_sentiment_index;
 pub mod staking_covenant; // issue #413 — on-chain commitment to pool terms by each staker
 pub mod sub_unit_reward_accumulator; // issue #367 — fractional reward carry-forward below minimum transfer
