@@ -31,7 +31,7 @@ use crate::admin;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the combined vesting config.
 const CONFIG_KEY: Symbol = symbol_short!("cmb_vst");
@@ -229,6 +229,7 @@ impl VaultContract {
         raw_reward.saturating_sub(vested)
     }
 }
+
 
 
 

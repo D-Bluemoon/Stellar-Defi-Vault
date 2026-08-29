@@ -9,7 +9,8 @@ use soroban_sdk::{contractimpl, contracttype, Address, Env, String};
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vault::{ CONTRACT_VERSION};
 
 /// Structured staking-position payload for QR code generation.
@@ -67,6 +68,8 @@ impl VaultContract {
         })
     }
 }
+
+
 
 
 

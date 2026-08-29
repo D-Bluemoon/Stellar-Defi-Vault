@@ -31,7 +31,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::interface::IStakingPoolClient;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the list of sibling pool addresses registered in
 /// the league.
@@ -107,7 +107,7 @@ fn insert_sorted(env: &Env, table: &mut Vec<LeagueTableEntry>, entry: LeagueTabl
     let mut insert_at = table.len();
     for (i, row) in table.iter().enumerate() {
         if entry.stats.total_rewards_distributed > row.stats.total_rewards_distributed {
-            insert_at = i;
+            insert_at = i as u32;
             break;
         }
     }
@@ -358,6 +358,7 @@ impl VaultContract {
         table
     }
 }
+
 
 
 

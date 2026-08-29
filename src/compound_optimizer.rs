@@ -30,7 +30,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Persistent-storage key prefix for a user's optimizer config.
 const CONFIG_KEY: Symbol = symbol_short!("cmp_opt");
@@ -238,6 +238,7 @@ impl VaultContract {
         crate::compound_optimizer::get_config(&env, &user)
     }
 }
+
 
 
 

@@ -15,7 +15,8 @@ use soroban_sdk::{contractimpl, symbol_short, token, Address, Env, Symbol};
 use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
-use crate::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Minimum tip in basis points of sender's position (0.01% = 1 bps).
 pub const MIN_TIP_BPS: u32 = 1;
@@ -67,7 +68,7 @@ fn get_position_amount(env: &Env, user: &Address) -> Option<i128> {
     balance::shares_to_amount(total_shares, total_deposited, shares)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Send a reward-token tip from `sender` to `recipient`.
     ///
@@ -162,6 +163,8 @@ impl VaultContract {
         (get_tips_sent(&env, &user), get_tips_received(&env, &user))
     }
 }
+
+
 
 
 

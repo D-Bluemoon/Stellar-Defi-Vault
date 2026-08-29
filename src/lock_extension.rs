@@ -16,7 +16,7 @@ use crate::admin;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const CONFIG_KEY: Symbol = symbol_short!("lockxcfg");
 /// Per-user cumulative extra ledgers committed via `extend_lock_period()`.
@@ -129,6 +129,7 @@ impl VaultContract {
             .unwrap_or(0)
     }
 }
+
 
 
 

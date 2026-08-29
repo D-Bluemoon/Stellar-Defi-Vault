@@ -38,7 +38,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the configured native XLM Stellar Asset Contract
 /// address (set once by admin via `set_xlm_sac_address()`).
@@ -265,6 +265,7 @@ impl VaultContract {
         get_xlm_wrap_stats(&env)
     }
 }
+
 
 
 

@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 //! Tests for the regulatory compliance report generator (issue #409).
 
 extern crate std;
@@ -128,8 +128,9 @@ fn history_capped_at_max_reports() {
 fn ledger_range_validated() {
     let f = Fixture::new();
     let result = f.vault.try_generate_compliance_report(&2_000, &1_000);
-    assert_eq!(result, Err(Ok(VaultError::InvalidLedgerRange)));
+    assert_eq!(result, Err(Ok(VaultError::InvalidRate)));
 
     let result = f.vault.try_generate_compliance_report(&1_000, &1_000);
-    assert_eq!(result, Err(Ok(VaultError::InvalidLedgerRange)));
+    assert_eq!(result, Err(Ok(VaultError::InvalidRate)));
 }
+

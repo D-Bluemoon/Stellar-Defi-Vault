@@ -129,9 +129,10 @@ pub struct WaitlistEntry {
     pub joined_waitlist_at: u32,
 }
 
-use crate::VaultContract;
+#[contract]
+pub struct VaultContract;
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Initialize the vault with an admin and the token it accepts.
     ///
@@ -1441,7 +1442,7 @@ impl VaultContract {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     fn validate_rate_bps(rate_bps: u32) -> Result<(), VaultError> {
         if rate_bps > balance::MAX_RATE_BPS {
@@ -1574,6 +1575,7 @@ impl VaultContract {
         Ok(accrued)
     }
 }
+
 
 
 

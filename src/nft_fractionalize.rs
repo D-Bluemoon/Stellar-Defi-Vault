@@ -17,7 +17,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Minimum number of fractions per NFT.
 pub const MIN_FRACTIONS: u32 = 2;
@@ -284,6 +284,7 @@ impl VaultContract {
         get_holders(&env, &owner)
     }
 }
+
 
 
 

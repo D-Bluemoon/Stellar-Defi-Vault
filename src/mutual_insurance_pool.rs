@@ -26,7 +26,7 @@ use crate::admin;
 use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance key: pool configuration.
 const CONFIG_KEY: Symbol = symbol_short!("mi_cfg");
@@ -424,6 +424,7 @@ impl VaultContract {
         crate::mutual_insurance_pool::get_event(&env, event_id)
     }
 }
+
 
 
 

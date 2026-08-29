@@ -17,7 +17,8 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::ReputationScore;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vault::{ BOOST_BPS_BASE};
 
 /// Instance-storage key for the decay configuration.
@@ -198,7 +199,7 @@ impl VaultContract {
     /// the base score, applies decay based on elapsed epochs since last activity,
     /// and emits a `reputation_decayed` event if the score decreased.
     pub fn apply_reputation_decay(env: Env, user: Address) -> ReputationScore {
-        let base = Self::get_reputation_score_raw(&env, user.clone());
+        let base = Self::get_reputation_score_raw(&env, &user);
         let (decayed, old_score, epochs_elapsed) =
             compute_decayed_score(&env, &user, &base);
 
@@ -216,6 +217,8 @@ impl VaultContract {
         }
     }
 }
+
+
 
 
 

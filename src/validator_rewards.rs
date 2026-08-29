@@ -17,7 +17,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the linked validator node address.
 const VALIDATOR_KEY: Symbol = symbol_short!("vr_node");
@@ -222,6 +222,7 @@ impl VaultContract {
         get_vr_pool(&env)
     }
 }
+
 
 
 

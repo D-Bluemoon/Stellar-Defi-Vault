@@ -22,7 +22,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Env,
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance key: `(terms_hash, terms_version)`.
 const TERMS_KEY: Symbol = symbol_short!("cov_trm");
@@ -135,6 +135,7 @@ impl VaultContract {
         Self::stake(env, user, amount)
     }
 }
+
 
 
 

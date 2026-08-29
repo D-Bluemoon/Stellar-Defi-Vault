@@ -32,7 +32,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vault::{ MAX_GINI_STAKERS};
 
 /// Instance-storage key for the rolling alert list.
@@ -108,6 +109,8 @@ fn within_amount_tolerance(a: i128, b: i128) -> bool {
 }
 
 /// One user's latest recorded staking activity, if any.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct LatestActivity {
     staker: Address,
     ledger: u32,
@@ -268,7 +271,7 @@ impl VaultContract {
 
         let mut alerts = get_alerts(&env);
         if index >= alerts.len() {
-            return Err(VaultError::AlertNotFound);
+            return Err(VaultError::InvalidRate);
         }
         alerts.remove(index);
         set_alerts(&env, &alerts);
@@ -280,6 +283,9 @@ impl VaultContract {
         Ok(())
     }
 }
+
+
+
 
 
 

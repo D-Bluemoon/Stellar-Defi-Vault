@@ -1378,4 +1378,31 @@ pub struct ContractDelegate {
     pub total_used: i128,
 }
 
+// ── Issue #392: loyalty points system ───────────────────────────────────────
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PointsAction {
+    PerLedgerStaked,
+    PerClaim,
+    PerGovernanceVote,
+    PerMilestone,
+    PerReferral,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PointsRule {
+    pub action: PointsAction,
+    pub points_per_action: u32,
+}
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PointsBenefit {
+    FeeWaiver,
+    BoostUnlock,
+    EarlyAccess,
+}
+
 

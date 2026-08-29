@@ -1,7 +1,4 @@
 ﻿#![no_std]
-use soroban_sdk::contract;
-#[contract]
-pub struct VaultContract;
 mod admin;
 pub mod admin_succession; // designated heir admin activated on prolonged inactivity
 pub mod anti_dump_claim_cooldown; // issue #365 — cooldown after large reward claims
@@ -59,8 +56,10 @@ pub mod twa_reward_rate; // issue #400 — time-weighted average reward rate for
 pub mod validator_rewards; // validator node reward integration
 pub mod vesting_cliff; // issue #287 — reward vesting cliff
 pub mod stake_weighted_tip_jar; // issue #354 — stake-weighted tip jar
+pub mod loyalty_points; // issue #392 — loyalty points system
 
 pub use nft::StakeReceiptNFT;
+pub use vault::VaultContract;
 
 #[cfg(test)]
 mod test;
@@ -118,3 +117,6 @@ mod test_boost_activation_age;
 
 #[cfg(test)]
 mod test_capacity_forecast;
+
+#[cfg(test)]
+mod test_loyalty_points;

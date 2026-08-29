@@ -39,7 +39,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Ledgers a slashed user has to file a dispute after being slashed.
 const DEFAULT_DISPUTE_WINDOW: u32 = 50_000;
@@ -346,6 +346,7 @@ impl VaultContract {
         load_slash_record(&env, slash_id)
     }
 }
+
 
 
 

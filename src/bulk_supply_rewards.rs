@@ -17,7 +17,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Most suppliers a single `bulk_supply_rewards` call may process.
 pub const MAX_BULK_SUPPLY_ENTRIES: u32 = 10;
@@ -122,6 +122,7 @@ impl VaultContract {
         Ok(results)
     }
 }
+
 
 
 

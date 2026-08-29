@@ -30,7 +30,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the configured thresholds, ascending by TVL.
 const THRESHOLDS_KEY: Symbol = symbol_short!("tvl_thr");
@@ -166,6 +166,7 @@ impl VaultContract {
         active_threshold_for(&thresholds, current_tvl)
     }
 }
+
 
 
 

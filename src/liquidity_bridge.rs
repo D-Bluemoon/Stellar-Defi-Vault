@@ -17,7 +17,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const APPROVED_TARGETS_KEY: Symbol = symbol_short!("brdg_tgt");
 
@@ -149,6 +149,7 @@ impl VaultContract {
         Ok(token_amount)
     }
 }
+
 
 
 

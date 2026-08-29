@@ -16,7 +16,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Most active stakers `get_staker_diversity_report` will process in one
 /// call before reverting with `TooManyStakers` (issue #407, mirrors
@@ -136,6 +136,7 @@ impl VaultContract {
         })
     }
 }
+
 
 
 

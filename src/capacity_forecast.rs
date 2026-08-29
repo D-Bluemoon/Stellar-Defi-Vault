@@ -6,7 +6,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const INFLOW_KEY: Symbol = symbol_short!("cuf_infl");
 const LAST_WARN_KEY: Symbol = symbol_short!("cuf_warn");
@@ -139,6 +139,7 @@ impl VaultContract {
         }
     }
 }
+
 
 
 

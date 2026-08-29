@@ -31,7 +31,7 @@ use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
 use crate::vault::{ BOOST_BPS_BASE};
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance key: max ledgers a staker may go silent before their boost is
 /// suspended. `0` disables the heartbeat requirement entirely.
@@ -260,6 +260,7 @@ impl VaultContract {
         }
     }
 }
+
 
 
 

@@ -30,7 +30,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance key: the active (or most recently configured) presale.
 const CONFIG_KEY: Symbol = symbol_short!("ps_cfg");
@@ -304,6 +304,7 @@ impl VaultContract {
         Ok(shares_minted)
     }
 }
+
 
 
 

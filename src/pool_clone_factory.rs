@@ -25,7 +25,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Byte
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance key: addresses of every clone deployed by this instance.
 const CLONES_KEY: Symbol = symbol_short!("pcf_cln");
@@ -113,6 +113,7 @@ impl VaultContract {
         crate::pool_clone_factory::get_clones(&env)
     }
 }
+
 
 
 

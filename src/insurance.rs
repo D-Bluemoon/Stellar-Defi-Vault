@@ -27,7 +27,7 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Ledgers the pool must stay solvent before a guarantor may withdraw.
 ///
@@ -256,6 +256,7 @@ impl VaultContract {
             .unwrap_or(0)
     }
 }
+
 
 
 

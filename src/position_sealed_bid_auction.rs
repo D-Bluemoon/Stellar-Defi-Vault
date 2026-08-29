@@ -38,7 +38,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Env,
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vault::{ MAX_AUCTION_BIDS};
 
 /// Instance-storage key for the next auction id counter.
@@ -499,6 +500,8 @@ impl VaultContract {
         }
     }
 }
+
+
 
 
 

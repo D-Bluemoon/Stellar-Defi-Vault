@@ -25,7 +25,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance key: cooldown configuration.
 const CONFIG_KEY: Symbol = symbol_short!("ad_cfg");
@@ -181,6 +181,7 @@ impl VaultContract {
         Ok(accrued)
     }
 }
+
 
 
 

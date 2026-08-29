@@ -21,7 +21,7 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const MIN_AGE_KEY: Symbol = symbol_short!("bam_age");
 const ACTIVATED_KEY: Symbol = symbol_short!("bam_act");
@@ -106,6 +106,7 @@ impl VaultContract {
         eligible
     }
 }
+
 
 
 

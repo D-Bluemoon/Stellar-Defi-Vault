@@ -34,7 +34,7 @@ use crate::events;
 use crate::nft::StakeReceiptNFTClient;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 #[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
@@ -137,6 +137,7 @@ impl VaultContract {
         Ok(amount_returned)
     }
 }
+
 
 
 

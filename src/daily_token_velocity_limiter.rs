@@ -29,7 +29,7 @@ use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
 use crate::vault::{LEDGERS_PER_DAY};
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const LIMIT_KEY: Symbol = symbol_short!("dv_cfg");
 const TRACKER_KEY: Symbol = symbol_short!("dv_trk");
@@ -245,6 +245,7 @@ impl VaultContract {
         Ok(payable)
     }
 }
+
 
 
 

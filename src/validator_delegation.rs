@@ -16,7 +16,7 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol, Vec};
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Most distinct validators `get_validator_weights` tracks at once.
 pub const MAX_VALIDATORS: u32 = 20;
@@ -165,6 +165,7 @@ impl VaultContract {
         weights
     }
 }
+
 
 
 

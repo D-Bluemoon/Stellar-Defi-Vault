@@ -33,7 +33,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Fixed-point scale for sub-stroop precision: one stroop = `SUB_UNIT_SCALE`
 /// scaled units. The remainder carried between claims is always in
@@ -167,6 +167,7 @@ impl VaultContract {
         Ok(whole)
     }
 }
+
 
 
 

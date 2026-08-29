@@ -16,7 +16,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::stake_quota;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Maximum number of open (not-yet-closed) content items.
 pub const MAX_OPEN_ITEMS: u32 = 100;
@@ -264,6 +264,7 @@ impl VaultContract {
         get_items(&env)
     }
 }
+
 
 
 

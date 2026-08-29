@@ -26,7 +26,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Env,
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Default window, in ledgers, within which a commitment must be revealed.
 ///
@@ -218,6 +218,7 @@ impl VaultContract {
         Self::stake(env, user, amount).map(|_shares| ())
     }
 }
+
 
 
 

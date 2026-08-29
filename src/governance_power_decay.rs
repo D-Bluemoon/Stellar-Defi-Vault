@@ -40,7 +40,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vault::{ BOOST_BPS_BASE, LEDGERS_PER_DAY};
 
 /// Instance-storage key for the decay configuration.
@@ -233,6 +234,8 @@ impl VaultContract {
         get_last_vote_ledger(&env, &user)
     }
 }
+
+
 
 
 

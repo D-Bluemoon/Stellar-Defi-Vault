@@ -25,7 +25,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Persistent-storage key prefix for a user's originally captured DNA.
 const DNA_KEY: Symbol = symbol_short!("pos_dna");
@@ -99,6 +99,7 @@ impl VaultContract {
         crate::position_dna::get_original(&env, &user)
     }
 }
+
 
 
 

@@ -32,7 +32,7 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the configured cooldown length, in ledgers.
 /// `0` (the default) disables the check entirely.
@@ -131,6 +131,7 @@ impl VaultContract {
         assert_transfer_cooldown_cleared(&env, &user)
     }
 }
+
 
 
 

@@ -24,7 +24,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const CAP_CONFIG_KEY: Symbol = symbol_short!("epc_cap");
 const TRACKER_KEY: Symbol = symbol_short!("epc_trk");
@@ -274,6 +274,7 @@ impl VaultContract {
         Ok(deferred.amount)
     }
 }
+
 
 
 

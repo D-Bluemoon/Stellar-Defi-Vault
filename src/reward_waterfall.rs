@@ -31,7 +31,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// One reward stream a staker can be owed.
 #[contracttype]
@@ -260,6 +260,7 @@ impl VaultContract {
         Ok(paid_total)
     }
 }
+
 
 
 

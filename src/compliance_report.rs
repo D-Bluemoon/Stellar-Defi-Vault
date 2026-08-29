@@ -20,7 +20,7 @@ use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Most reports retained in history (issue #409: "monthly cadence").
 pub const MAX_COMPLIANCE_REPORTS: u32 = 12;
@@ -160,6 +160,7 @@ impl VaultContract {
         Ok(get_history(&env))
     }
 }
+
 
 
 

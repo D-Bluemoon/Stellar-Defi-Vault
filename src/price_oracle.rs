@@ -19,7 +19,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 use crate::vesting_cliff;
 
 /// Most recent price snapshots retained per user. Older entries roll off.
@@ -145,6 +145,7 @@ impl VaultContract {
         history_for(&env, &user)
     }
 }
+
 
 
 

@@ -12,7 +12,7 @@ use crate::balance;
 use crate::storage::DataKey;
 use crate::VaultContract;
 use crate::vault::{STELLAR_LEDGERS_PER_YEAR};
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -122,6 +122,7 @@ impl VaultContract {
         }
     }
 }
+
 
 
 

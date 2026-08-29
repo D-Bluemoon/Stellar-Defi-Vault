@@ -27,7 +27,7 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the epoch alignment config.
 const CONFIG_KEY: Symbol = symbol_short!("epc_algn");
@@ -177,6 +177,7 @@ impl VaultContract {
         }
     }
 }
+
 
 
 

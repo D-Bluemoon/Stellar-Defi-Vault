@@ -22,7 +22,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Number of top stakers snapshotted at season end.
 pub const TOP_N: u32 = 10;
@@ -198,6 +198,7 @@ impl VaultContract {
             .unwrap_or(Vec::new(&env))
     }
 }
+
 
 
 

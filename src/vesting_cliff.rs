@@ -26,7 +26,7 @@ use crate::admin;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// The ledger at which `user` last staked, if they hold a position.
 ///
@@ -158,6 +158,7 @@ impl VaultContract {
         cliff_unlock_ledger_for(&env, &user).unwrap_or(0)
     }
 }
+
 
 
 

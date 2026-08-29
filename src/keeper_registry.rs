@@ -19,7 +19,7 @@ use crate::admin;
 use crate::errors::VaultError;
 use crate::events;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 /// Persistent-storage key prefix for a single keeper's record.
 const KEEPER_KEY: Symbol = symbol_short!("kpr_rec");
@@ -148,6 +148,7 @@ impl VaultContract {
         Ok(records)
     }
 }
+
 
 
 

@@ -10,7 +10,7 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::VaultContract;
-use crate::VaultContractClient;
+use crate::vault::VaultContractClient;
 
 const RISK_PROFILE_KEY: Symbol = symbol_short!("cs_prof");
 const LOCK_DAYS_KEY: Symbol = symbol_short!("cs_lockd");
@@ -168,6 +168,7 @@ impl VaultContract {
         }
     }
 }
+
 
 
 

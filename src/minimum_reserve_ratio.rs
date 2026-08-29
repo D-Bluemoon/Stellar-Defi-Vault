@@ -29,7 +29,8 @@ use crate::balance;
 use crate::epoch_reward_cap;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vault::{ BOOST_BPS_BASE, MAX_GINI_STAKERS};
 
 /// Instance-storage key for the configured floor ratio, in basis points.
@@ -194,6 +195,8 @@ impl VaultContract {
         Ok(payable)
     }
 }
+
+
 
 
 

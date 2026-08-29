@@ -1314,3 +1314,34 @@ pub fn reward_claimed_in_token(
         (reward_amount, output_token.clone(), output_amount, ledger),
     );
 }
+
+// ── Issue #392: loyalty points events ───────────────────────────────────────
+
+pub fn points_awarded(
+    env: &Env,
+    user: &Address,
+    amount: u32,
+    new_balance: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("loy_awd"), user.clone());
+    env.events().publish(topics, (amount, new_balance, ledger));
+}
+
+pub fn points_redeemed(
+    env: &Env,
+    user: &Address,
+    amount: u32,
+    benefit: crate::storage::PointsBenefit,
+    new_balance: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("loy_rdm"), user.clone());
+    env.events()
+        .publish(topics, (amount, benefit, new_balance, ledger));
+}
+
+pub fn loyalty_config_updated(env: &Env, rules_len: u32, ledger: u32) {
+    let topics = (symbol_short!("loy_cfg"),);
+    env.events().publish(topics, (rules_len, ledger));
+}
