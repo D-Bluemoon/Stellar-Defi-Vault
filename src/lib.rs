@@ -58,6 +58,7 @@ pub mod vesting_cliff; // issue #287 — reward vesting cliff
 pub mod stake_weighted_tip_jar; // issue #354 — stake-weighted tip jar
 pub mod loyalty_points; // issue #392 — loyalty points system
 pub mod stake_to_learn; // issue #391 — on-chain quiz system for tiered reward unlocks
+pub mod claim_price_impact; // issue #355 — reward-claim DEX price impact estimator
 
 pub use nft::StakeReceiptNFT;
 pub use vault::VaultContract;
@@ -124,3 +125,6 @@ mod test_loyalty_points;
 
 #[cfg(test)]
 mod test_stake_to_learn;
+
+#[cfg(test)]
+mod test_claim_price_impact;
