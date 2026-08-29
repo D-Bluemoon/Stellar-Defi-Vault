@@ -10,12 +10,12 @@ use crate::{
     nft::StakeReceiptNFTClient,
     storage::{
         AccessTier, AdminAction, AdminProposal, AuctionBid, AutoConvertConfig, BoostTierProgress,
-        BootstrapConfig, BrandingConfig, CampaignInfo, CapacityAuction, ChangelogEntry, ClaimWindow,
-        ContractAddresses, ContractMetadata, DataKey, DayBucket, DebtNFT, DelegationChain, DynamicFeeConfig,
-        MatchingProgram,
-        EpochState, FeeRecipient, FlashStakeReceipt, GovernanceProposal, HalvingConfig,
-        InsurancePolicy, InsuranceProduct, InterfaceId, LeaderboardEntry, Loan, LoanConfig,
-        LotteryConfig, MerkleRoot, MigrationExport, Milestone, MilestoneCondition, MultisigConfig,
+        BootstrapConfig, BrandingConfig, CampaignInfo, CapacityAuction, ChangelogEntry,
+        ClaimWindow, ContractAddresses, ContractMetadata, DataKey, DayBucket, DebtNFT,
+        DelegationChain, DynamicFeeConfig, EpochState, FeeRecipient, FlashStakeReceipt,
+        GovernanceProposal, HalvingConfig, InsurancePolicy, InsuranceProduct, InterfaceId,
+        LeaderboardEntry, Loan, LoanConfig, LotteryConfig, MatchingProgram, MerkleRoot,
+        MigrationExport, Milestone, MilestoneCondition, MultisigConfig, OperatorDashboard,
         OptimalClaimAdvice, PauseInfo, PauseReason, PendingAction, PoolComparison, PoolConfig,
         OperatorDashboard, PoolHealthReport, PoolStats, PredictionMarket, PriceCondition, PriorityBidRecord, ProposableParam,
         RateHistoryEntry, ReferralLeaderboardEntry, ReferralTreeNode, ReputationScore, RewardTier,
@@ -25,6 +25,14 @@ use crate::{
         StakingEfficiencyScore, StorageUsageReport, SunsetState, SwapOffer, TaxReport, Tournament,
         TriggerDirection, UnbondingPosition, UnstakeCheckResult, UserStats, UserSummary,
         VestingEntry, YieldComparison,
+        PoolHealthReport, PoolStats, PredictionMarket, PriceCondition, PriorityBidRecord,
+        ProposableParam, RateHistoryEntry, ReferralLeaderboardEntry, ReferralTreeNode,
+        ReputationScore, RevenueShareMerkleRoot, RevenueSharingConfig, RewardMultiplierBreakdown,
+        RewardTier, RoundingPolicy, Season, SmoothingSchedule, SmoothingStatus, StakeAction,
+        StakeHistoryEntry, StakePosition, StakeStreak, StakingCertificate, StakingEfficiencyScore,
+        StorageUsageReport, SunsetState, SwapOffer, TaxReport, Tournament, TriggerDirection,
+        UnbondingPosition, UnstakeCheckResult, UserStats, UserSummary, VestingEntry,
+        YieldComparison,
     },
 };
 
@@ -387,7 +395,13 @@ impl VaultContract {
     }
 
     /// Unstake by burning `shares`. This is an alias for `withdraw`.
+    ///
+    /// Rejects the unstake with `BelowMinimumUnstake` when an admin-configured
+    /// minimum unstake amount is active and `shares` is below it, unless this
+    /// is a full position exit (issue #441).
     pub fn unstake(env: Env, staker: Address, shares: i128) -> Result<i128, VaultError> {
+        let position_amount = balance::get_shares(&env, &staker);
+        crate::minimum_unstake_amount::enforce_min_unstake(&env, shares, position_amount)?;
         Self::do_unstake(&env, &staker, shares)
     }
 
@@ -882,9 +896,7 @@ impl VaultContract {
             let x_i = sorted_rewards.get(i).unwrap();
             total = total.checked_add(x_i).ok_or(VaultError::ArithmeticError)?;
             let rank = (i as i128) + 1;
-            let weighted = rank
-                .checked_mul(x_i)
-                .ok_or(VaultError::ArithmeticError)?;
+            let weighted = rank.checked_mul(x_i).ok_or(VaultError::ArithmeticError)?;
             rank_weighted = rank_weighted
                 .checked_add(weighted)
                 .ok_or(VaultError::ArithmeticError)?;
