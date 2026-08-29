@@ -857,6 +857,45 @@ pub fn milestone_achieved(
         .publish(topics, (milestone_id, milestone_name.clone(), ledger));
 }
 
+/// Emitted when a user successfully completes a quiz and unlocks a reward tier.
+pub fn quiz_completed(
+    env: &Env,
+    user: &Address,
+    quiz_id: u32,
+    tier_unlocked: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_comp"), user);
+    env.events()
+        .publish(topics, (quiz_id, tier_unlocked, ledger));
+}
+
+/// Emitted when a user fails a quiz attempt.
+pub fn quiz_attempt_failed(
+    env: &Env,
+    user: &Address,
+    quiz_id: u32,
+    remaining_attempts: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_fail"), user);
+    env.events()
+        .publish(topics, (quiz_id, remaining_attempts, ledger));
+}
+
+/// Emitted when an admin adds a new quiz.
+pub fn quiz_added(
+    env: &Env,
+    admin: &Address,
+    quiz_id: u32,
+    tier_unlocked: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_add"), admin);
+    env.events()
+        .publish(topics, (quiz_id, tier_unlocked, ledger));
+}
+
 // ── Issue #240: oracle-triggered lock-up release ──────────────────────────────
 
 pub fn condition_triggered(

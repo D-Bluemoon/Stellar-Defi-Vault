@@ -1,11 +1,11 @@
-﻿use soroban_sdk::{
+use soroban_sdk::{
     contract, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Bytes,
     Env, String, Symbol, Vec,
 };
 
 use crate::{
     admin, balance,
-    errors::{VaultError, VaultExtError, VaultFeatureError},
+    errors::{VaultError, VaultExtError, VaultFeatureError, VaultQuizError},
     events,
     nft::StakeReceiptNFTClient,
     storage::{
@@ -19,7 +19,7 @@ use crate::{
         OptimalClaimAdvice, PauseInfo, PauseReason, PendingAction, PoolComparison, PoolConfig,
         OperatorDashboard, PoolHealthReport, PoolStats, PredictionMarket, PriceCondition, PriorityBidRecord, ProposableParam,
         RateHistoryEntry, ReferralLeaderboardEntry, ReferralTreeNode, ReputationScore, RewardTier,
-        RewardMultiplierBreakdown, RevenueShareMerkleRoot, RevenueSharingConfig, RoundingPolicy,
+        Quiz, RewardMultiplierBreakdown, RevenueShareMerkleRoot, RevenueSharingConfig, RoundingPolicy,
         Season, SmoothingSchedule, SmoothingStatus,
         StakeAction, StakeHistoryEntry, StakePosition, StakeStreak, StakingCertificate,
         StakingEfficiencyScore, StorageUsageReport, SunsetState, SwapOffer, TaxReport, Tournament,
@@ -1397,6 +1397,122 @@ impl VaultContract {
         events::admin_action_add_yield(&env, &admin_actual, amount);
         balance::increment_admin_action_count(&env);
         Ok(())
+    }
+
+    /// Admin function to add a new quiz for the stake_to_learn feature (issue #391).
+    ///
+    /// - `question_hash` / `answer_hash`: pre-hashed off-chain (plaintext never stored).
+    /// - `reward_tier_unlocked`: tier index unlocked on quiz completion.
+    /// - `attempts_allowed`: max answer submissions per user (must be ≥ 1).
+    ///
+    /// Maximum 20 quizzes. Quiz IDs are assigned sequentially starting at 0.
+    pub fn add_quiz(
+        env: Env,
+        admin_addr: Address,
+        question_hash: soroban_sdk::Bytes,
+        answer_hash: soroban_sdk::Bytes,
+        reward_tier_unlocked: u32,
+        attempts_allowed: u32,
+    ) -> Result<(), VaultQuizError> {
+        admin_addr.require_auth();
+        admin::require_admin(&env)?;
+        Self::require_not_paused(&env)?;
+
+        if question_hash.len() == 0 || answer_hash.len() == 0 {
+            return Err(VaultQuizError::ZeroAmount);
+        }
+        if attempts_allowed == 0 {
+            return Err(VaultQuizError::ZeroAmount);
+        }
+
+        let count = balance::get_quiz_count(&env);
+        if count >= balance::get_max_quizzes(&env) {
+            return Err(VaultQuizError::TooManyQuizzes);
+        }
+
+        let quiz = Quiz {
+            id: count,
+            question_hash,
+            answer_hash,
+            reward_tier_unlocked,
+            attempts_allowed,
+        };
+
+        balance::set_quiz(&env, &quiz);
+        balance::set_quiz_count(&env, count + 1);
+
+        events::quiz_added(&env, &admin_addr, quiz.id, quiz.reward_tier_unlocked, env.ledger().sequence());
+        Ok(())
+    }
+
+    /// User function to submit a hashed answer to a quiz (issue #391).
+    ///
+    /// - **Correct answer**: records completion permanently, updates the user's
+    ///   highest unlocked tier, emits `quiz_completed`.
+    /// - **Wrong answer**: decrements remaining attempts, emits `quiz_attempt_failed`.
+    pub fn submit_quiz_answer(
+        env: Env,
+        user: Address,
+        quiz_id: u32,
+        answer_hash: soroban_sdk::Bytes,
+    ) -> Result<(), VaultQuizError> {
+        user.require_auth();
+        Self::require_not_paused(&env)?;
+
+        if answer_hash.len() == 0 {
+            return Err(VaultQuizError::ZeroAmount);
+        }
+
+        // Load quiz — return error if not found.
+        let quiz = balance::get_quiz(&env, quiz_id).ok_or(VaultQuizError::QuizNotFound)?;
+
+        // Already completed by this user?
+        let completed = balance::get_completed_quizzes(&env, &user);
+        if completed.contains(quiz_id) {
+            return Err(VaultQuizError::QuizAlreadyCompleted);
+        }
+
+        // Resolve attempts remaining.
+        // `None` = user has never submitted (first attempt).
+        // `Some(0)` = all attempts exhausted.
+        let attempts_remaining = match balance::get_quiz_attempts_remaining_opt(&env, &user, quiz_id) {
+            None => quiz.attempts_allowed,
+            Some(0) => return Err(VaultQuizError::QuizMaxAttemptsReached),
+            Some(n) => n,
+        };
+
+        if answer_hash == quiz.answer_hash {
+            // ── Correct answer ───────────────────────────────────────────────
+            let mut new_completed = completed;
+            new_completed.push_back(quiz_id);
+            balance::set_completed_quizzes(&env, &user, &new_completed);
+
+            let current_tier = balance::get_user_quiz_tier(&env, &user);
+            if quiz.reward_tier_unlocked > current_tier {
+                balance::set_user_quiz_tier(&env, &user, quiz.reward_tier_unlocked);
+            }
+
+            let ledger = env.ledger().sequence();
+            events::quiz_completed(&env, &user, quiz_id, quiz.reward_tier_unlocked, ledger);
+        } else {
+            // ── Wrong answer ─────────────────────────────────────────────────
+            let new_remaining = attempts_remaining - 1;
+            balance::set_quiz_attempts_remaining(&env, &user, quiz_id, new_remaining);
+            events::quiz_attempt_failed(&env, &user, quiz_id, new_remaining, env.ledger().sequence());
+        }
+
+        Ok(())
+    }
+
+    /// Read-only: return all quiz IDs successfully completed by `user` (issue #391).
+    pub fn get_completed_quizzes(env: Env, user: Address) -> Vec<u32> {
+        balance::get_completed_quizzes(&env, &user)
+    }
+
+    /// Read-only: return the highest reward-tier index unlocked by `user`
+    /// through quiz completion. Returns `0` if no quiz has been completed (issue #391).
+    pub fn get_unlocked_tier(env: Env, user: Address) -> u32 {
+        balance::get_user_quiz_tier(&env, &user)
     }
 
     /// Adds user to waitlist FIFO queue when pool is at cap.

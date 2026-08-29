@@ -1,4 +1,4 @@
-﻿use soroban_sdk::contracterror;
+use soroban_sdk::contracterror;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -494,6 +494,50 @@ impl From<VaultError> for VaultFeatureError {
             // Any other VaultError reaching here (shouldn't happen given how
             // these functions are written) maps to the closest generic case.
             _ => VaultFeatureError::Unauthorized,
+        }
+    }
+}
+
+/// Fifth error enum for issue #391 (stake_to_learn). Both `VaultError`,
+/// `VaultExtError`, `VaultFeatureError`, and `VaultOverflowError` are at
+/// Soroban's 50-variant cap, so quiz-specific errors live here.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultQuizError {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Mirrors `VaultError::ZeroAmount`.
+    ZeroAmount = 3,
+    /// Mirrors `VaultError::ArithmeticError`.
+    ArithmeticError = 4,
+    /// Mirrors `VaultError::VaultPaused`.
+    VaultPaused = 5,
+    /// Returned by `submit_quiz_answer()` when the given `quiz_id` does not
+    /// correspond to any stored quiz.
+    QuizNotFound = 6,
+    /// Returned by `submit_quiz_answer()` when the user has already
+    /// successfully completed this quiz.
+    QuizAlreadyCompleted = 7,
+    /// Returned by `submit_quiz_answer()` when the user has exhausted all
+    /// allowed attempts for this quiz.
+    QuizMaxAttemptsReached = 8,
+    /// Returned by `add_quiz()` when the contract already holds the maximum
+    /// of 20 quizzes.
+    TooManyQuizzes = 9,
+}
+
+impl From<VaultError> for VaultQuizError {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultQuizError::Unauthorized,
+            VaultError::NotInitialized => VaultQuizError::NotInitialized,
+            VaultError::ZeroAmount => VaultQuizError::ZeroAmount,
+            VaultError::ArithmeticError => VaultQuizError::ArithmeticError,
+            VaultError::VaultPaused => VaultQuizError::VaultPaused,
+            _ => VaultQuizError::Unauthorized,
         }
     }
 }

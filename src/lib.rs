@@ -1,4 +1,4 @@
-﻿#![no_std]
+#![no_std]
 mod admin;
 pub mod admin_succession; // designated heir admin activated on prolonged inactivity
 pub mod anti_dump_claim_cooldown; // issue #365 — cooldown after large reward claims
@@ -57,6 +57,7 @@ pub mod validator_rewards; // validator node reward integration
 pub mod vesting_cliff; // issue #287 — reward vesting cliff
 pub mod stake_weighted_tip_jar; // issue #354 — stake-weighted tip jar
 pub mod loyalty_points; // issue #392 — loyalty points system
+pub mod stake_to_learn; // issue #391 — on-chain quiz system for tiered reward unlocks
 
 pub use nft::StakeReceiptNFT;
 pub use vault::VaultContract;
@@ -120,3 +121,6 @@ mod test_capacity_forecast;
 
 #[cfg(test)]
 mod test_loyalty_points;
+
+#[cfg(test)]
+mod test_stake_to_learn;

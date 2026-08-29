@@ -1405,4 +1405,15 @@ pub enum PointsBenefit {
     EarlyAccess,
 }
 
+/// Quiz structure for stake_to_learn feature (issue #391).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Quiz {
+    pub id: u32,
+    pub question_hash: soroban_sdk::Bytes,
+    pub answer_hash: soroban_sdk::Bytes,
+    pub reward_tier_unlocked: u32,
+    pub attempts_allowed: u32,
+}
+
 
