@@ -9,6 +9,8 @@ pub mod interface;
 pub mod nft;
 mod storage;
 mod vault;
+pub mod long_term_badge;
+
 
 // Features added as their own modules rather than inside `vault.rs`. Soroban
 // supports several `#[contractimpl]` blocks for one contract type, and
