@@ -31,15 +31,18 @@ pub mod compound_optimizer; // issue #338 — active claim/restake interval opti
 pub mod content_curation; // content curation stake-weighted voting
 pub mod daily_token_velocity_limiter; // issue #411 — pool-wide daily reward outflow cap
 pub mod dex_limit_order_buyback; // issue #421 — limit order buyback mechanism
+pub mod emission_schedule_history; // issue #440 — sampled emission-rate history for charting
 pub mod epoch_alignment; // issue #342 — calendar-style epoch boundary alignment
 pub mod epoch_reward_cap; // per-epoch reward outflow cap with deferred overflow claims
 pub mod governance_power_decay; // issue #404 — governance vote weight decay for long-inactive voters
 pub mod insurance; // issue #289 — pool health insurance
 pub mod keeper_registry; // approved-keeper registry with performance stats
 pub mod minimum_reserve_ratio; // issue #405 — minimum reward-reserve ratio floor
+pub mod minimum_unstake_amount; // issue #441 — minimum unstake amount preventing dust unstakes
 pub mod mutual_insurance_pool; // issue #366 — peer mutual insurance pool
 pub mod nft_fractionalize; // NFT receipt fractionalization
 pub mod nft_redeem; // issue #410 — burn-and-redeem NFT-triggered position exit
+pub mod operator_reputation_score; // issue #442 — cross-pool operator reputation scoring
 pub mod partial_freeze; // issue #337 — partial position freeze
 pub mod performance_league_table; // issue #373 — cross-pool performance league table
 pub mod pool_clone_factory; // issue #412 — deploy new pool instances from this contract as template
@@ -50,6 +53,7 @@ pub mod position_shadow_clone; // issue #420 — read-only shadow clone of a pos
 pub mod price_oracle; // issue #290 — position price oracle
 pub mod qr_metadata; // issue #324 — stake receipt QR metadata
 pub mod reputation_decay; // reputation score time-decay mechanism
+pub mod stake_gated_ipfs_storage; // issue #439 — stake-gated IPFS content-hash storage
 pub mod staker_sentiment_index;
 pub mod staking_covenant; // issue #413 — on-chain commitment to pool terms by each staker
 pub mod sub_unit_reward_accumulator; // issue #367 — fractional reward carry-forward below minimum transfer
@@ -121,3 +125,6 @@ mod test_capacity_forecast;
 
 #[cfg(test)]
 mod test_issues_419_422; // issue #419, #420, #421, #422
+
+#[cfg(test)]
+mod test_issues_439_442; // issue #439, #440, #441, #442

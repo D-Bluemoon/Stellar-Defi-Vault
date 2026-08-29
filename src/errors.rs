@@ -266,4 +266,11 @@ pub enum VaultError {
     /// Returned by `stake_with_covenant` (issue #413) when the caller has
     /// not signed the currently published pool terms.
     CovenantRequired = 72,
+    /// Returned by `pin_ipfs_hash` (issue #439) when the caller's staked
+    /// position amount is below the configured `min_stake` for the
+    /// stake-gated IPFS storage service.
+    InsufficientStakeForStorage = 73,
+    /// Returned by `unstake` (issue #441) when the requested amount is below
+    /// the configured minimum unstake amount and is not a full position exit.
+    BelowMinimumUnstake = 74,
 }
