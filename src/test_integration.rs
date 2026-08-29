@@ -1,16 +1,18 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 
 extern crate std;
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
-    token, Address, Env,
+    token, Address, Env, Vec,
 };
 
-use crate::storage::PauseReason;
+use crate::storage::{AccessTier, PauseReason};
 use crate::vault::{VaultContract, VaultContractClient, STELLAR_LEDGERS_PER_YEAR};
+use crate::StakeReceiptNFT;
+use crate::nft::StakeReceiptNFTClient;
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 fn create_token<'a>(
     env: &Env,
@@ -28,25 +30,25 @@ fn set_ledger(env: &Env, sequence: u32) {
     });
 }
 
-// ── Full lifecycle: pool create → multi-user stake → mid-claim → rate change → unstake ──
+// ΓöÇΓöÇ Full lifecycle: pool create ΓåÆ multi-user stake ΓåÆ mid-claim ΓåÆ rate change ΓåÆ unstake ΓöÇΓöÇ
 
 /// Scenario:
 ///   admin deploys pool (rate 1000 bps / 10% APR)
-///   → 5 users stake different amounts at ledger 0
-///   → advance to half-year (ANNUAL/2 ledgers)
-///   → users 1 and 2 claim mid-way rewards
-///   → admin changes rate to 500 bps (5% APR)
-///   → advance to full year (ANNUAL ledgers)
-///   → all users unstake all shares
-///   → all users claim remaining rewards
-///   → verify: contract stake balance = 0, reward pool = initial − total_rewards_paid,
+///   ΓåÆ 5 users stake different amounts at ledger 0
+///   ΓåÆ advance to half-year (ANNUAL/2 ledgers)
+///   ΓåÆ users 1 and 2 claim mid-way rewards
+///   ΓåÆ admin changes rate to 500 bps (5% APR)
+///   ΓåÆ advance to full year (ANNUAL ledgers)
+///   ΓåÆ all users unstake all shares
+///   ΓåÆ all users claim remaining rewards
+///   ΓåÆ verify: contract stake balance = 0, reward pool = initial ΓêÆ total_rewards_paid,
 ///              sum of final user balances = sum of initial + total rewards
 ///
-/// Reward math (no boost schedule, multiplier = 10_000 = 1×):
-///   reward = amount × rate_bps × elapsed / 10_000 / ANNUAL
+/// Reward math (no boost schedule, multiplier = 10_000 = 1├ù):
+///   reward = amount ├ù rate_bps ├ù elapsed / 10_000 / ANNUAL
 ///
 /// Users 1 & 2 claim at ANNUAL/2 (rate still 1000), so their checkpoint advances.
-/// Users 3–5 never claim early; their accrual runs from ledger 0 to ANNUAL using
+/// Users 3ΓÇô5 never claim early; their accrual runs from ledger 0 to ANNUAL using
 /// the current rate at unstake time (500 bps), so they earn at 5% for the full year.
 ///
 ///   user1  (1_000_000): mid=50_000 + post=25_000  = 75_000
@@ -68,7 +70,7 @@ fn test_integration_full_lifecycle() {
         li.max_entry_ttl = 10_000_000;
     });
 
-    // ── Phase 1: Setup ──────────────────────────────────────────────────────
+    // ΓöÇΓöÇ Phase 1: Setup ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     let admin = Address::generate(&env);
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
@@ -93,8 +95,8 @@ fn test_integration_full_lifecycle() {
     vault.set_reward_rate_bps(&1000); // 10% APR
     vault.fund_reward_pool(&admin, &reward_pool_initial);
 
-    // ── Phase 2: All users stake at ledger 0 ───────────────────────────────
-    // Inline comment: first stake for each user → position_opened event emitted
+    // ΓöÇΓöÇ Phase 2: All users stake at ledger 0 ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // Inline comment: first stake for each user ΓåÆ position_opened event emitted
     let stake1: i128 = 1_000_000;
     let stake2: i128 = 2_000_000;
     let stake3: i128 = 3_000_000;
@@ -120,10 +122,10 @@ fn test_integration_full_lifecycle() {
     );
     assert_eq!(stats.total_rewards_paid, 0, "No rewards paid yet");
 
-    // ── Phase 3: Advance to half-year ──────────────────────────────────────
+    // ΓöÇΓöÇ Phase 3: Advance to half-year ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     set_ledger(&env, annual / 2);
 
-    // ── Phase 4: Users 1 and 2 claim mid-way rewards ───────────────────────
+    // ΓöÇΓöÇ Phase 4: Users 1 and 2 claim mid-way rewards ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     // This snapshots their reward checkpoint at the current (1000 bps) rate
     let mid_claim1 = vault.claim(&user1);
     let mid_claim2 = vault.claim(&user2);
@@ -131,14 +133,14 @@ fn test_integration_full_lifecycle() {
     assert_eq!(mid_claim1, 50_000, "User1 mid-year reward at 10% APR");
     assert_eq!(mid_claim2, 100_000, "User2 mid-year reward at 10% APR");
 
-    // ── Phase 5: Admin changes reward rate ─────────────────────────────────
-    // Users 3–5 have not yet accrued; their future rewards will use this new rate
+    // ΓöÇΓöÇ Phase 5: Admin changes reward rate ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // Users 3ΓÇô5 have not yet accrued; their future rewards will use this new rate
     vault.set_reward_rate_bps(&500); // 5% APR
 
-    // ── Phase 6: Advance to full year ──────────────────────────────────────
+    // ΓöÇΓöÇ Phase 6: Advance to full year ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     set_ledger(&env, annual);
 
-    // ── Phase 7: All users unstake ─────────────────────────────────────────
+    // ΓöÇΓöÇ Phase 7: All users unstake ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     // Inline comment: shares are 1:1 with token amounts (no yield added), so each
     // user recovers exactly their original stake. accrue_rewards is called internally.
     let back1 = vault.unstake(&user1, &stake1);
@@ -171,9 +173,9 @@ fn test_integration_full_lifecycle() {
         "total_stakers should reach 0 after all full unstakes"
     );
 
-    // ── Phase 8: All users claim remaining rewards ─────────────────────────
+    // ΓöÇΓöÇ Phase 8: All users claim remaining rewards ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     // Users 1 & 2: rewards earned in second half at 500 bps
-    // Users 3–5: rewards earned for full year at current rate (500 bps applied retroactively
+    // Users 3ΓÇô5: rewards earned for full year at current rate (500 bps applied retroactively
     //            because their checkpoint was never moved mid-year)
     let post_claim1 = vault.claim(&user1);
     let post_claim2 = vault.claim(&user2);
@@ -199,9 +201,9 @@ fn test_integration_full_lifecycle() {
         + post_claim5;
     assert_eq!(total_rewards, 825_000, "Total rewards across all users");
 
-    // ── Phase 9: Final assertions ───────────────────────────────────────────
+    // ΓöÇΓöÇ Phase 9: Final assertions ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-    // Assert A: contract reward token balance = initial_pool − total_rewards_paid
+    // Assert A: contract reward token balance = initial_pool ΓêÆ total_rewards_paid
     let contract_balance = token.balance(&vault_id);
     assert_eq!(
         contract_balance,
@@ -230,7 +232,7 @@ fn test_integration_full_lifecycle() {
     );
 }
 
-// ── Whitelist tests for permissioned staking ─────────────────────────────────
+// ΓöÇΓöÇ Whitelist tests for permissioned staking ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_whitelisted_user_can_stake_when_enabled() {
@@ -349,7 +351,7 @@ fn test_revocation_blocks_new_stake_but_allows_unstake_and_claim() {
     // but alice should still be able to claim accrued rewards
     let claim_res = vault.claim(&alice);
     // claim should succeed (may be zero or >0 depending on timing), but must not error
-    // ensure method returns without Err by comparing types — here it's direct call so will panic on Err
+    // ensure method returns without Err by comparing types ΓÇö here it's direct call so will panic on Err
     // We assert that the returned value is >= 0
     assert!(claim_res >= 0);
 
@@ -357,7 +359,7 @@ fn test_revocation_blocks_new_stake_but_allows_unstake_and_claim() {
     let unstake_res = vault.unstake(&alice, &100_000);
     assert_eq!(unstake_res, 100_000);
 }
-// ── pool_stats reflects staker count correctly ────────────────────────────────
+// ΓöÇΓöÇ pool_stats reflects staker count correctly ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_total_stakers_tracks_entries_and_exits() {
@@ -420,7 +422,7 @@ fn test_total_stakers_tracks_entries_and_exits() {
     );
 }
 
-// ── position_of returns correct data ──────────────────────────────────────────
+// ΓöÇΓöÇ position_of returns correct data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_position_of_returns_correct_fields() {
@@ -458,7 +460,7 @@ fn test_position_of_returns_correct_fields() {
     );
 }
 
-// ── delegate staking: full happy path ────────────────────────────────────────
+// ΓöÇΓöÇ delegate staking: full happy path ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_stake_for_delegate_happy_path() {
@@ -477,7 +479,7 @@ fn test_stake_for_delegate_happy_path() {
     let vault = VaultContractClient::new(&env, &vault_id);
     vault.initialize(&admin, &token_addr, &0_u32, &None, &None);
 
-    // Fund only the delegate — beneficiary has no tokens
+    // Fund only the delegate ΓÇö beneficiary has no tokens
     token_admin.mint(&delegate, &500_000);
 
     // Beneficiary approves delegate
@@ -515,7 +517,7 @@ fn test_stake_for_delegate_happy_path() {
     assert_eq!(vault.shares_of(&beneficiary), 0);
 }
 
-// ── delegate staking: auth / rejection edge cases ────────────────────────────
+// ΓöÇΓöÇ delegate staking: auth / rejection edge cases ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_stake_for_non_approved_delegate_rejected() {
@@ -537,7 +539,7 @@ fn test_stake_for_non_approved_delegate_rejected() {
     vault.initialize(&admin, &token_addr, &0_u32, &None, &None);
     token_admin.mint(&delegate, &500_000);
 
-    // No approval given — should fail
+    // No approval given ΓÇö should fail
     let result = vault.try_stake_for(&delegate, &beneficiary, &100_000);
     assert_eq!(
         result,
@@ -582,7 +584,7 @@ fn test_stake_for_revoked_delegate_rejected() {
     );
 }
 
-// ── analytics events: rate_changed / position_opened / position_closed ────────
+// ΓöÇΓöÇ analytics events: rate_changed / position_opened / position_closed ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_rate_changed_event_emitted() {
@@ -638,7 +640,7 @@ fn test_position_opened_event_on_first_stake() {
     token_admin.mint(&alice, &500_000);
 
     vault.stake(&alice, &100_000);
-    vault.stake(&alice, &100_000); // second stake — should NOT emit position_opened again
+    vault.stake(&alice, &100_000); // second stake ΓÇö should NOT emit position_opened again
 
     let events = env.events().all();
     let matched: std::vec::Vec<_> = events
@@ -685,8 +687,8 @@ fn test_position_closed_event_on_full_unstake() {
     token_admin.mint(&alice, &500_000);
 
     vault.stake(&alice, &200_000);
-    vault.unstake(&alice, &100_000); // partial — should NOT emit pos_clos
-    vault.unstake(&alice, &100_000); // full — SHOULD emit pos_clos
+    vault.unstake(&alice, &100_000); // partial ΓÇö should NOT emit pos_clos
+    vault.unstake(&alice, &100_000); // full ΓÇö SHOULD emit pos_clos
 
     let events = env.events().all();
     let matched: std::vec::Vec<_> = events
@@ -713,7 +715,7 @@ fn test_position_closed_event_on_full_unstake() {
     );
 }
 
-// ── paused / unpaused events include ledger field ─────────────────────────────
+// ΓöÇΓöÇ paused / unpaused events include ledger field ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_paused_event_includes_ledger() {
@@ -752,10 +754,10 @@ fn test_paused_event_includes_ledger() {
 
     assert_eq!(matched.len(), 1, "paused event should be emitted");
 
-    // event data is (reason, message, ledger) — just verify the event exists
+    // event data is (reason, message, ledger) ΓÇö just verify the event exists
 }
 
-// ── slash admin actions tests ───────────────────────────────────────────────
+// ΓöÇΓöÇ slash admin actions tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_slash_partial_and_treasury_receive() {
@@ -954,7 +956,7 @@ fn test_initialization_defaults_treasury_to_admin() {
     assert_eq!(token.balance(&admin), 10_000);
 }
 
-// ── cooldown / unbonding flow tests ─────────────────────────────────────────
+// ΓöÇΓöÇ cooldown / unbonding flow tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_full_cooldown_flow() {
@@ -1083,7 +1085,7 @@ fn test_no_rewards_accrued_during_cooldown() {
 
     // Set rate, then advance to 100_000 ledgers.
     // reward = amount * rate_bps * elapsed / 10_000 / 6_307_200
-    // = 100_000 * 1_000 * 100_000 / 10_000 / 6_307_200 ≈ 158 tokens > 0.
+    // = 100_000 * 1_000 * 100_000 / 10_000 / 6_307_200 Γëê 158 tokens > 0.
     vault.set_reward_rate_bps(&1000);
     env.ledger().with_mut(|li| li.sequence_number = 100_000);
 
@@ -1104,7 +1106,7 @@ fn test_no_rewards_accrued_during_cooldown() {
     assert_eq!(claim_after, pending_before);
 }
 
-// ── Issue #281: Fee Revenue Sharing Tests ───────────────────────────────────
+// ΓöÇΓöÇ Issue #281: Fee Revenue Sharing Tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_revenue_sharing_flow() {
@@ -1252,7 +1254,7 @@ fn test_revenue_sharing_invalid_proof_and_double_claim() {
     assert!(res_double.is_err());
 }
 
-// ── Issue #280: New Staker Reward Escrow Tests ──────────────────────────────
+// ΓöÇΓöÇ Issue #280: New Staker Reward Escrow Tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_new_staker_reward_escrow_flow() {
@@ -1370,7 +1372,7 @@ fn test_escrow_period_zero_disables_and_restaker_gets_new_escrow() {
     assert_eq!(vault.get_escrow_release_ledger(&alice), Some(350));
 }
 
-// ── Issue #282: Stake-Gated Access Tests ────────────────────────────────────
+// ΓöÇΓöÇ Issue #282: Stake-Gated Access Tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_stake_gated_access_flow() {
@@ -1456,7 +1458,7 @@ fn test_stake_gated_access_flow() {
     assert!(!nft_client_2.has_receipt(&alice));
 }
 
-// ── Issue #279: Reward Halving Schedule Integration Tests ───────────────────
+// ΓöÇΓöÇ Issue #279: Reward Halving Schedule Integration Tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 #[test]
 fn test_reward_halving_schedule_integration() {

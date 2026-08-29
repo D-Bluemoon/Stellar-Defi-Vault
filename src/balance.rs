@@ -3,7 +3,7 @@ use crate::storage::{
     ContractDelegate, DataKey, DayBucket, DynamicFeeConfig, FeeRecipient, FlashStakeReceipt,
     GovernanceProposal, InsurancePolicy, InsuranceProduct, Loan, LoanConfig, LotteryConfig,
     Milestone, MultisigConfig, OnboardingChecklist, PendingAction, PriceCondition,
-    PriorityBidRecord, RateHistoryEntry, ReferralStats, RevenueShareMerkleRoot,
+    PriorityBidRecord, Quiz, RateHistoryEntry, ReferralStats, RewardTier, RevenueShareMerkleRoot,
     RevenueSharingConfig, Season, StakePosition, SunsetState, VestingEntry,
 };
 
@@ -70,6 +70,108 @@ pub fn set_reward_rate_bps(env: &Env, rate_bps: u32) {
         .set(&DataKey::RewardRateBps, &rate_bps);
 }
 
+pub fn get_reward_tiers(env: &Env) -> Vec<RewardTier> {
+    env.storage()
+        .instance()
+        .get(&symbol_short!("rwtiers"))
+        .unwrap_or(Vec::new(env))
+}
+
+pub fn set_reward_tiers(env: &Env, tiers: &Vec<RewardTier>) {
+    env.storage().instance().set(&symbol_short!("rwtiers"), tiers);
+}
+
+/// Get the maximum number of quizzes allowed.
+pub fn get_max_quizzes(_: &Env) -> u32 {
+    MAX_QUIZZES
+}
+
+/// Get quiz data by ID.
+pub fn get_quiz(env: &Env, quiz_id: u32) -> Option<Quiz> {
+    let key = (Symbol::new(env, "quiz"), quiz_id);
+    env.storage().persistent().get(&key)
+}
+
+/// Set quiz data by ID.
+pub fn set_quiz(env: &Env, quiz: &Quiz) {
+    let key = (Symbol::new(env, "quiz"), quiz.id);
+    env.storage().persistent().set(&key, quiz);
+}
+
+/// Get the number of remaining attempts for a user on a specific quiz.
+pub fn get_quiz_attempts_remaining(env: &Env, user: &Address, quiz_id: u32) -> u32 {
+    let key = (Symbol::new(env, "quiz_attempts"), user.clone(), quiz_id);
+    env.storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(0)
+}
+
+/// Returns `None` if the user has never had attempts initialized for this quiz
+/// (i.e. they haven't submitted a wrong answer yet), `Some(n)` otherwise.
+/// This lets callers distinguish between "not yet started" and "0 remaining".
+pub fn get_quiz_attempts_remaining_opt(env: &Env, user: &Address, quiz_id: u32) -> Option<u32> {
+    let key = (Symbol::new(env, "quiz_attempts"), user.clone(), quiz_id);
+    env.storage().persistent().get(&key)
+}
+
+/// Set the number of remaining attempts for a user on a specific quiz.
+pub fn set_quiz_attempts_remaining(env: &Env, user: &Address, quiz_id: u32, attempts: u32) {
+    let key = (Symbol::new(env, "quiz_attempts"), user.clone(), quiz_id);
+    env.storage()
+        .persistent()
+        .set(&key, &attempts);
+}
+
+/// Get the list of completed quiz IDs for a user.
+pub fn get_completed_quizzes(env: &Env, user: &Address) -> Vec<u32> {
+    let key = (Symbol::new(env, "completed_quizzes"), user.clone());
+    env.storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(env))
+}
+
+/// Set the list of completed quiz IDs for a user.
+pub fn set_completed_quizzes(env: &Env, user: &Address, completed_quizzes: &Vec<u32>) {
+    let key = (Symbol::new(env, "completed_quizzes"), user.clone());
+    env.storage()
+        .persistent()
+        .set(&key, completed_quizzes);
+}
+
+/// Get the highest reward tier unlocked by a user via quiz completion.
+pub fn get_user_quiz_tier(env: &Env, user: &Address) -> u32 {
+    let key = (Symbol::new(env, "user_quiz_tier"), user.clone());
+    env.storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(0)
+}
+
+/// Set the highest reward tier unlocked by a user via quiz completion.
+pub fn set_user_quiz_tier(env: &Env, user: &Address, tier: u32) {
+    let key = (Symbol::new(env, "user_quiz_tier"), user.clone());
+    env.storage()
+        .persistent()
+        .set(&key, &tier);
+}
+
+/// Get the total number of quizzes that have been created.
+pub fn get_quiz_count(env: &Env) -> u32 {
+    env.storage()
+        .instance()
+        .get(&Symbol::new(env, "quiz_count"))
+        .unwrap_or(0)
+}
+
+/// Set the total quiz count.
+pub fn set_quiz_count(env: &Env, count: u32) {
+    env.storage()
+        .instance()
+        .set(&Symbol::new(env, "quiz_count"), &count);
+}
+
 pub fn get_rate_history(env: &Env) -> Vec<(u32, u32)> {
     env.storage()
         .instance()
@@ -82,6 +184,7 @@ pub fn set_rate_history(env: &Env, history: &Vec<(u32, u32)>) {
 }
 
 pub const MAX_RATE_HISTORY_ENTRIES: u32 = 50;
+pub const MAX_QUIZZES: u32 = 20;
 
 /// Maximum allowed reward rate in basis points (500% APR). Issue #72.
 pub const MAX_RATE_BPS: u32 = 50_000;
@@ -2419,5 +2522,130 @@ pub fn set_tvl_smoothing_enabled(env: &Env, enabled: bool) {
     env.storage()
         .instance()
         .set(&symbol_short!("tvl_smth"), &enabled);
+}
+
+// ── Insurance-backed penalty waiver (issue #243) ───────────────────────────
+
+pub fn is_position_insured(env: &Env, user: &Address) -> bool {
+    env.storage()
+        .persistent()
+        .get(&(symbol_short!("insured"), user.clone()))
+        .unwrap_or(false)
+}
+
+pub fn set_position_insured(env: &Env, user: &Address, insured: bool) {
+    env.storage()
+        .persistent()
+        .set(&(symbol_short!("insured"), user.clone()), &insured);
+}
+
+pub fn clear_position_insured(env: &Env, user: &Address) {
+    env.storage()
+        .persistent()
+        .remove(&(symbol_short!("insured"), user.clone()));
+}
+
+// ── Matching program (issue #242) ──────────────────────────────────────────
+
+pub fn get_matching_program(env: &Env) -> Option<crate::storage::MatchingProgram> {
+    env.storage()
+        .instance()
+        .get(&symbol_short!("match_pg"))
+}
+
+pub fn set_matching_program(env: &Env, program: &crate::storage::MatchingProgram) {
+    env.storage()
+        .instance()
+        .set(&symbol_short!("match_pg"), program);
+}
+
+pub fn get_user_matching_stats(env: &Env, user: &Address) -> crate::storage::UserMatchingStats {
+    env.storage()
+        .persistent()
+        .get(&(symbol_short!("match_st"), user.clone()))
+        .unwrap_or(crate::storage::UserMatchingStats { total_matched: 0 })
+}
+
+pub fn set_user_matching_stats(env: &Env, user: &Address, stats: &crate::storage::UserMatchingStats) {
+    env.storage()
+        .persistent()
+        .set(&(symbol_short!("match_st"), user.clone()), stats);
+}
+
+// ── Unstake insurance bps ──────────────────────────────────────────────────
+
+pub fn get_unstake_insurance_bps(env: &Env) -> u32 {
+    env.storage()
+        .instance()
+        .get(&symbol_short!("unst_ins"))
+        .unwrap_or(0)
+}
+
+pub fn set_unstake_insurance_bps(env: &Env, bps: u32) {
+    env.storage()
+        .instance()
+        .set(&symbol_short!("unst_ins"), &bps);
+}
+
+// ── Output tokens whitelist (issue #244) ───────────────────────────────────
+
+pub fn get_output_tokens(env: &Env) -> Vec<Address> {
+    env.storage()
+        .instance()
+        .get(&symbol_short!("out_toks"))
+        .unwrap_or(Vec::new(env))
+}
+
+pub fn set_output_tokens(env: &Env, tokens: &Vec<Address>) {
+    env.storage()
+        .instance()
+        .set(&symbol_short!("out_toks"), tokens);
+}
+
+// ── Cohort tracking ────────────────────────────────────────────────────────
+
+pub fn get_cohort_of(env: &Env, user: &Address) -> Option<u32> {
+    env.storage()
+        .persistent()
+        .get(&(symbol_short!("cohort"), user.clone()))
+}
+
+pub fn set_cohort_of(env: &Env, user: &Address, cohort_id: u32) {
+    env.storage()
+        .persistent()
+        .set(&(symbol_short!("cohort"), user.clone()), &cohort_id);
+}
+
+pub fn get_cohort_ids(env: &Env) -> Vec<u32> {
+    env.storage()
+        .instance()
+        .get(&symbol_short!("crt_ids"))
+        .unwrap_or(Vec::new(env))
+}
+
+pub fn set_cohort_ids(env: &Env, ids: &Vec<u32>) {
+    env.storage()
+        .instance()
+        .set(&symbol_short!("crt_ids"), ids);
+}
+
+pub fn get_cohort_stats(env: &Env, cohort_id: u32) -> Option<crate::storage::CohortStats> {
+    env.storage()
+        .instance()
+        .get(&(symbol_short!("crt_st"), cohort_id))
+}
+
+pub fn set_cohort_stats(env: &Env, cohort_id: u32, stats: &crate::storage::CohortStats) {
+    env.storage()
+        .instance()
+        .set(&(symbol_short!("crt_st"), cohort_id), stats);
+}
+
+// ── Staked at ledger (direct access) ───────────────────────────────────────
+
+pub fn set_staked_at_ledger(env: &Env, user: &Address, ledger: u32) {
+    env.storage()
+        .instance()
+        .set(&crate::storage::DataKey::StakedAtLedger(user.clone()), &ledger);
 }
 
