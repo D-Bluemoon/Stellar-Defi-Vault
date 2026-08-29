@@ -1,8 +1,8 @@
-//! Reward waterfall — priority order for paying multiple reward streams when
+﻿//! Reward waterfall â€” priority order for paying multiple reward streams when
 //! the reward pool can't cover all of them (issue #341).
 //!
 //! `BaseRate` is sourced from the existing accrual ledger
-//! (`balance::get_accrued_reward` / `balance::set_accrued_reward`) — nothing
+//! (`balance::get_accrued_reward` / `balance::set_accrued_reward`) â€” nothing
 //! new is introduced there. `ValidatorBonus`, `CampaignBoost`,
 //! `AnniversaryBonus`, and `ReferralBonus` have no dedicated per-user ledger
 //! anywhere else in the contract yet (validator_rewards.rs tracks its own
@@ -18,7 +18,7 @@
 //! # Known gap
 //!
 //! This module adds `claim_via_waterfall()` as a new, standalone claim path
-//! rather than editing the pool's existing `claim()` — that entrypoint (and
+//! rather than editing the pool's existing `claim()` â€” that entrypoint (and
 //! most of `vault.rs` past `join_waitlist`) is currently missing from
 //! `src/vault.rs` on `main` due to an unrelated bad merge (see PR
 //! description). Once that's restored, `claim()` should call into
@@ -30,7 +30,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, vec, Address, Env, S
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// One reward stream a staker can be owed.
 #[contracttype]
@@ -103,7 +104,7 @@ fn debit(env: &Env, user: &Address, reward_type: RewardType, amount: i128) {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Set the priority order rewards are paid in when the pool can't cover
     /// all of them. Admin only. Must list each `RewardType` at most once.
@@ -114,7 +115,7 @@ impl VaultContract {
             return Err(VaultError::ZeroAmount);
         }
 
-        // Reject duplicates — a repeated type would silently swallow one of
+        // Reject duplicates â€” a repeated type would silently swallow one of
         // the others out of the priority order.
         for i in 0..order.len() {
             for j in (i + 1)..order.len() {
@@ -140,7 +141,7 @@ impl VaultContract {
 
     /// Admin-only credit to a user's `ValidatorBonus` / `CampaignBoost` /
     /// `AnniversaryBonus` / `ReferralBonus` balance. `BaseRate` can't be
-    /// credited here — it's driven entirely by the existing accrual ledger.
+    /// credited here â€” it's driven entirely by the existing accrual ledger.
     pub fn credit_reward(
         env: Env,
         user: Address,
@@ -194,7 +195,7 @@ impl VaultContract {
     /// When the pool covers everything, all types are paid in full and no
     /// event beyond the transfer is needed. When it doesn't, this pays as
     /// many full reward-type amounts as fit, in priority order, and emits
-    /// `partial_reward_paid` naming every type that was skipped entirely —
+    /// `partial_reward_paid` naming every type that was skipped entirely â€”
     /// it never pays a type partially, so a skipped type's balance is left
     /// untouched for the next claim.
     pub fn claim_via_waterfall(env: Env, user: Address) -> Result<i128, VaultError> {
@@ -259,3 +260,18 @@ impl VaultContract {
         Ok(paid_total)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-//! Voluntary lock-period extension for a reward boost.
+﻿//! Voluntary lock-period extension for a reward boost.
 //!
 //! Vote-escrow-style tokenomics: a user who voluntarily commits to a longer
 //! lock than their position's current baseline receives a reward boost
@@ -15,7 +15,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 const CONFIG_KEY: Symbol = symbol_short!("lockxcfg");
 /// Per-user cumulative extra ledgers committed via `extend_lock_period()`.
@@ -35,7 +36,7 @@ fn get_config(env: &Env) -> Option<LockExtensionConfig> {
     env.storage().instance().get(&CONFIG_KEY)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Sets the lock-extension boost terms. Admin only.
     pub fn set_lock_extension_config(
@@ -128,3 +129,18 @@ impl VaultContract {
             .unwrap_or(0)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

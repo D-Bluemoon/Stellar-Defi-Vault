@@ -1,4 +1,4 @@
-//! Time-weighted average reward rate for smoother pending-reward estimates
+﻿//! Time-weighted average reward rate for smoother pending-reward estimates
 //! (issue #400).
 //!
 //! The pool's reward rate can change over a position's lifetime (decay,
@@ -10,8 +10,8 @@
 //! # Wiring
 //!
 //! There is no hook into a lower-level rate setter to append a checkpoint
-//! automatically, so — matching the pattern `governance_power_decay.rs`
-//! uses for the same kind of gap — `record_rate_checkpoint` is the
+//! automatically, so â€” matching the pattern `governance_power_decay.rs`
+//! uses for the same kind of gap â€” `record_rate_checkpoint` is the
 //! entrypoint to call on every rate change; it both records the checkpoint
 //! and updates the live spot rate, so it's a drop-in for changing the rate
 //! going forward.
@@ -21,7 +21,9 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, STELLAR_LEDGERS_PER_YEAR};
+use crate::VaultContract;
+use crate::vault::{STELLAR_LEDGERS_PER_YEAR};
+use crate::vault::VaultContractClient;
 
 const CHECKPOINTS_KEY: Symbol = symbol_short!("twa_cps");
 const MAX_CHECKPOINTS: u32 = 50;
@@ -113,7 +115,7 @@ fn calc_twa_rate(env: &Env, from_ledger: u32, to_ledger: u32) -> i128 {
     weighted_sum / total_span
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Record a reward-rate checkpoint and update the live spot rate.
     /// Admin only. Oldest checkpoint is dropped once more than
@@ -150,7 +152,7 @@ impl VaultContract {
 
     /// `user`'s pending reward estimated using the time-weighted average
     /// rate over their position's lifetime, instead of the current spot
-    /// rate. Read-only / advisory — actual claims are unaffected.
+    /// rate. Read-only / advisory â€” actual claims are unaffected.
     pub fn get_pending_reward_twa(env: Env, user: Address) -> i128 {
         let amount = position_amount(&env, &user);
         if amount == 0 {
@@ -178,3 +180,18 @@ impl VaultContract {
         spot - twa
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

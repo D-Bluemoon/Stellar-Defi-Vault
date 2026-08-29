@@ -1378,6 +1378,42 @@ pub struct ContractDelegate {
     pub total_used: i128,
 }
 
+// ── Issue #392: loyalty points system ───────────────────────────────────────
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PointsAction {
+    PerLedgerStaked,
+    PerClaim,
+    PerGovernanceVote,
+    PerMilestone,
+    PerReferral,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PointsRule {
+    pub action: PointsAction,
+    pub points_per_action: u32,
+}
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PointsBenefit {
+    FeeWaiver,
+    BoostUnlock,
+    EarlyAccess,
+}
+
+/// Quiz structure for stake_to_learn feature (issue #391).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Quiz {
+    pub id: u32,
+    pub question_hash: soroban_sdk::Bytes,
+    pub answer_hash: soroban_sdk::Bytes,
+    pub reward_tier_unlocked: u32,
+    pub attempts_allowed: u32,
 // ── Issue #377: position health alert ────────────────────────────────────────
 
 /// Result of `position_health_alert()`: a unified check across every

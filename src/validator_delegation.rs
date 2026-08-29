@@ -1,9 +1,9 @@
-//! Validator set delegation (issue #332).
+﻿//! Validator set delegation (issue #332).
 //!
 //! Lets a staker assign their staking weight to a Stellar validator node
 //! address. The pool tracks total weight delegated to each validator,
 //! enabling stake-weighted validator selection / on-chain proof of support.
-//! Purely informational — delegation does not affect reward rate or staking
+//! Purely informational â€” delegation does not affect reward rate or staking
 //! mechanics.
 //!
 //! # Storage
@@ -15,7 +15,8 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol, Vec};
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Most distinct validators `get_validator_weights` tracks at once.
 pub const MAX_VALIDATORS: u32 = 20;
@@ -86,7 +87,7 @@ fn adjust_weight(env: &Env, validator: &Address, delta: i128) -> Result<(), Vaul
     Ok(())
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Assign the caller's current stake weight to `validator`. Replaces any
     /// existing delegation (the old validator's weight is removed first).
@@ -149,7 +150,7 @@ impl VaultContract {
     /// weight.
     pub fn get_validator_weights(env: Env) -> Vec<(Address, i128)> {
         let mut weights = get_weights(&env);
-        // Simple descending insertion sort — bounded by MAX_VALIDATORS (20).
+        // Simple descending insertion sort â€” bounded by MAX_VALIDATORS (20).
         let len = weights.len();
         for i in 1..len {
             let key = weights.get(i).unwrap();
@@ -164,3 +165,18 @@ impl VaultContract {
         weights
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

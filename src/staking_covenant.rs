@@ -1,7 +1,7 @@
-//! Staking covenant (issue #413).
+﻿//! Staking covenant (issue #413).
 //!
-//! Before staking, a user acknowledges and commits to a set of pool terms —
-//! published by the admin as a hash — creating an auditable on-chain record
+//! Before staking, a user acknowledges and commits to a set of pool terms â€”
+//! published by the admin as a hash â€” creating an auditable on-chain record
 //! of agreement. When the admin publishes a new terms version, existing
 //! stakers keep their positions untouched but must re-sign before their
 //! next stake top-up.
@@ -21,7 +21,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Env,
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Instance key: `(terms_hash, terms_version)`.
 const TERMS_KEY: Symbol = symbol_short!("cov_trm");
@@ -66,7 +67,7 @@ fn signed_current(env: &Env, user: &Address) -> bool {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Publishes the pool terms as a hash and version. Admin only. Existing
     /// stakers' positions are untouched, but their `CovenantRecord` is no
@@ -95,7 +96,7 @@ impl VaultContract {
         let (current_hash, version) =
             crate::staking_covenant::get_terms(&env).ok_or(VaultError::NotInitialized)?;
         if terms_hash != current_hash {
-            return Err(VaultError::TermsMismatch);
+            return Err(VaultError::InvalidRate);
         }
 
         crate::staking_covenant::set_record(
@@ -124,13 +125,30 @@ impl VaultContract {
     /// `CovenantRequired` if the caller has not signed the current terms
     /// version.
     pub fn stake_with_covenant(env: Env, user: Address, amount: i128) -> Result<i128, VaultError> {
-        // Only gate once terms have actually been published — before that
+        // Only gate once terms have actually been published â€” before that
         // there is nothing for a staker to sign.
         if crate::staking_covenant::get_terms(&env).is_some()
             && !crate::staking_covenant::signed_current(&env, &user)
         {
-            return Err(VaultError::CovenantRequired);
+            return Err(VaultError::InvalidRate);
         }
         Self::stake(env, user, amount)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

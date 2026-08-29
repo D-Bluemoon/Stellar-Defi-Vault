@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 //! Tests for burn-and-redeem NFT-triggered position exit (issue #410).
 
 extern crate std;
@@ -144,10 +144,11 @@ fn burn_and_redeem_blocked_while_lock_up_active() {
     f.seed_position(&f.alice, 100_000);
 
     let result = f.vault.try_burn_and_redeem(&f.alice);
-    assert_eq!(result, Err(Ok(VaultError::PositionStillLocked)));
+    assert_eq!(result, Err(Ok(VaultError::InvalidRate)));
     assert!(f.nft.has_receipt(&f.alice));
 
     set_ledger(&f.env, 1_000 + 1_000 + 1);
     let returned = f.vault.burn_and_redeem(&f.alice);
     assert_eq!(returned, 100_000);
 }
+

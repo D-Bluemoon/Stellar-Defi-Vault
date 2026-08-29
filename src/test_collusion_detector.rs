@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 //! Tests for the coordinated stake/unstake pattern detector (issue #406).
 
 extern crate std;
@@ -8,7 +8,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
 use crate::{
     balance,
     collusion_detector::CollusionPattern,
-    vault::{VaultContract, VaultContractClient},
+    crate::{VaultContract, VaultContractClient},
 };
 
 struct Fixture<'a> {
@@ -116,7 +116,7 @@ fn alert_dismissed_correctly() {
 #[test]
 fn false_positive_threshold_not_triggered_for_legitimate_similar_amounts() {
     let f = Fixture::new();
-    // Only two addresses with similar amounts — below the 3-address threshold.
+    // Only two addresses with similar amounts â€” below the 3-address threshold.
     f.seed_activity(&f.alice, &[(5_000, 1_000)]);
     f.seed_activity(&f.bob, &[(5_300, 1_020)]);
 
@@ -124,3 +124,4 @@ fn false_positive_threshold_not_triggered_for_legitimate_similar_amounts() {
     assert_eq!(alerts.len(), 0);
     assert_eq!(f.vault.get_collusion_alerts().len(), 0);
 }
+

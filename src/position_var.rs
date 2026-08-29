@@ -1,7 +1,7 @@
-//! Position Value-at-Risk estimate (issue #408).
+﻿//! Position Value-at-Risk estimate (issue #408).
 //!
-//! A deterministic scenario analysis — not a statistical VaR in the
-//! probabilistic sense — that quantifies a staking position's exposure to
+//! A deterministic scenario analysis â€” not a statistical VaR in the
+//! probabilistic sense â€” that quantifies a staking position's exposure to
 //! four adverse scenarios: unstaking before the lock-up expires, worst-case
 //! slashing, the reward opportunity cost of exiting early, and a
 //! caller-supplied reward-token price drop.
@@ -10,7 +10,9 @@ use soroban_sdk::{contractimpl, contracttype, Address, Env};
 
 use crate::balance;
 use crate::storage::DataKey;
-use crate::vault::{VaultContract, STELLAR_LEDGERS_PER_YEAR};
+use crate::VaultContract;
+use crate::vault::{STELLAR_LEDGERS_PER_YEAR};
+use crate::vault::VaultContractClient;
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -36,10 +38,10 @@ impl VaRReport {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Estimate potential loss for `user`'s position under adverse
-    /// conditions (issue #408). `reward_price_drop_bps` is caller-supplied —
+    /// conditions (issue #408). `reward_price_drop_bps` is caller-supplied â€”
     /// this contract has no price oracle of its own.
     ///
     /// Read-only: no auth required, no state changes. Returns a
@@ -120,3 +122,18 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

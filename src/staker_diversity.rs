@@ -1,9 +1,9 @@
-//! Staker diversity / stake-concentration score (issue #407).
+﻿//! Staker diversity / stake-concentration score (issue #407).
 //!
 //! Distinct from `get_reward_gini_coefficient` (issue #275), which measures
 //! inequality of *pending reward* distribution. This measures how evenly
 //! the *staked principal itself* is spread across active stakers, using the
-//! Herfindahl-Hirschman Index (HHI) — a standard market-concentration
+//! Herfindahl-Hirschman Index (HHI) â€” a standard market-concentration
 //! metric: `HHI = sum(share_i^2)`, where `share_i` is each staker's
 //! fraction of total stake. See e.g. the U.S. DOJ/FTC Horizontal Merger
 //! Guidelines for the canonical definition. A single staker holding
@@ -15,7 +15,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Env, Vec};
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Most active stakers `get_staker_diversity_report` will process in one
 /// call before reverting with `TooManyStakers` (issue #407, mirrors
@@ -48,11 +49,11 @@ fn top_n_share_bps(sorted_desc: &Vec<i128>, n: u32, total_staked: i128) -> u32 {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Read-only report on how evenly staked principal is distributed
     /// across all active stakers (issue #407). Admin only, since sorting up
-    /// to `MAX_DIVERSITY_STAKERS` stakers is comparatively expensive —
+    /// to `MAX_DIVERSITY_STAKERS` stakers is comparatively expensive â€”
     /// mirrors `get_reward_gini_coefficient`'s own reasoning (issue #275).
     ///
     /// Reverts with `TooManyStakers` above `MAX_DIVERSITY_STAKERS` active
@@ -113,7 +114,7 @@ impl VaultContract {
         let herfindahl_index = herfindahl_index.clamp(0, 10_000) as u32;
         let diversity_score_bps = 10_000u32.saturating_sub(herfindahl_index);
 
-        // "Top 1% / 10% of stakers" — at least one staker each, since a
+        // "Top 1% / 10% of stakers" â€” at least one staker each, since a
         // fractional staker count rounds up to a whole staker.
         let top_1_pct_count = ((staker_count as u64 + 99) / 100).max(1) as u32;
         let top_10_pct_count = ((staker_count as u64 * 10 + 99) / 100).max(1) as u32;
@@ -135,3 +136,18 @@ impl VaultContract {
         })
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

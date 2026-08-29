@@ -1,4 +1,4 @@
-//! Anti-dump claim cooldown (issue #365).
+﻿//! Anti-dump claim cooldown (issue #365).
 //!
 //! A large reward claim followed immediately by more claims creates
 //! sustained sell pressure on the reward token. Once a claim through this
@@ -24,7 +24,8 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Instance key: cooldown configuration.
 const CONFIG_KEY: Symbol = symbol_short!("ad_cfg");
@@ -62,7 +63,7 @@ fn set_cooldown_until(env: &Env, user: &Address, ledger: u32) {
         .set(&(COOLDOWN_KEY, user.clone()), &ledger);
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Configure the claim-size threshold and cooldown length. Admin only.
     pub fn set_anti_dump_cooldown(
@@ -141,7 +142,7 @@ impl VaultContract {
         let now = env.ledger().sequence();
         let cooldown_until = crate::anti_dump_claim_cooldown::get_cooldown_until(&env, &user);
         if now < cooldown_until {
-            return Err(VaultError::ClaimCooldownActive);
+            return Err(VaultError::InvalidRate);
         }
 
         let accrued = balance::get_accrued_reward(&env, &user);
@@ -180,3 +181,19 @@ impl VaultContract {
         Ok(accrued)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

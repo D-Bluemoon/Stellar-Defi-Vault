@@ -1,6 +1,6 @@
-//! Partial position freeze (issue #337).
+﻿//! Partial position freeze (issue #337).
 //!
-//! Distinct from a whole-position freeze — this locks only a specific token
+//! Distinct from a whole-position freeze â€” this locks only a specific token
 //! amount within a user's stake, leaving the remainder freely withdrawable.
 //! Rewards keep accruing on the full position; only the frozen portion is
 //! meant to be blocked from unstaking.
@@ -15,7 +15,8 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 const FROZEN_KEY: Symbol = symbol_short!("pf_frzn");
 
@@ -42,10 +43,10 @@ fn set_frozen(env: &Env, user: &Address, amount: i128) {
         .set(&(FROZEN_KEY, user.clone()), &amount);
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Freeze `amount` of `user`'s position. Admin only. The frozen portion
-    /// is tracked separately from the unfrozen, freely-available remainder —
+    /// is tracked separately from the unfrozen, freely-available remainder â€”
     /// see `get_available_amount`. Reverts with `WithdrawalLimitExceeded` if
     /// the total frozen amount would exceed the user's current position.
     pub fn partial_freeze(env: Env, user: Address, amount: i128) -> Result<(), VaultError> {
@@ -110,3 +111,18 @@ impl VaultContract {
         (position - frozen).max(0)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

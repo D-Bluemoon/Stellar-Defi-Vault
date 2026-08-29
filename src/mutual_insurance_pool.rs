@@ -1,11 +1,11 @@
-//! Peer mutual insurance pool (issue #366).
+﻿//! Peer mutual insurance pool (issue #366).
 //!
 //! Distinct from `insurance.rs` (issue #289, a single external guarantor's
 //! reserve covering admin misbehavior) and from the `InsuranceProduct` /
 //! `InsurancePolicy` admin-run principal-protection product in `storage.rs`
 //! (issue #259, funded and priced by the admin). This is a peer fund: opted-in
 //! stakers redirect a small share of their own reward claims into a shared
-//! pot, and members vote — stake-weighted, like `slash_dispute.rs` — on
+//! pot, and members vote â€” stake-weighted, like `slash_dispute.rs` â€” on
 //! whether a claimed loss event is real before it pays out of that pot.
 //!
 //! # Wiring
@@ -25,7 +25,8 @@ use crate::balance;
 use crate::admin;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Instance key: pool configuration.
 const CONFIG_KEY: Symbol = symbol_short!("mi_cfg");
@@ -109,7 +110,7 @@ fn position_amount(env: &Env, user: &Address) -> Option<i128> {
     balance::shares_to_amount(total_shares, total_deposited, shares)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Enable (or reconfigure) the mutual insurance pool. Admin only. Does
     /// not touch the accumulated fund balance.
@@ -186,7 +187,7 @@ impl VaultContract {
     }
 
     /// Opt out of the mutual pool. Past contributions remain in the shared
-    /// fund — it is a mutual pot, not a personal account.
+    /// fund â€” it is a mutual pot, not a personal account.
     pub fn leave_mutual_insurance(env: Env, user: Address) -> Result<(), VaultError> {
         user.require_auth();
 
@@ -363,7 +364,7 @@ impl VaultContract {
     }
 
     /// Resolve a loss event after its voting deadline. Anyone may call this
-    /// — it just tallies already-cast votes. Approved
+    /// â€” it just tallies already-cast votes. Approved
     /// (`votes_for > votes_against` and `votes_for > 0`) events pay out
     /// `min(requested_amount, fund_balance)` from the shared fund to the
     /// claimant. Returns the amount actually paid (0 if rejected).
@@ -423,3 +424,18 @@ impl VaultContract {
         crate::mutual_insurance_pool::get_event(&env, event_id)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-//! Transfer cooldown — a waiting period before the recipient of a
+﻿//! Transfer cooldown ΓÇö a waiting period before the recipient of a
 //! transferred position can unstake it (issue #340).
 //!
 //! Builds on issues #29 (`transfer_position`) and #97
@@ -13,7 +13,7 @@
 //! # Known gap
 //!
 //! `transfer_position` and `transfer_position_with_rewards` are currently
-//! missing from `src/vault.rs` on `main` (see PR description — an unrelated
+//! missing from `src/vault.rs` on `main` (see PR description ΓÇö an unrelated
 //! bad merge truncated most of that file). This module exposes
 //! [`record_transfer_received`] and [`assert_transfer_cooldown_cleared`] as
 //! free functions specifically so that, once those two entrypoints are
@@ -31,7 +31,8 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Instance-storage key for the configured cooldown length, in ledgers.
 /// `0` (the default) disables the check entirely.
@@ -55,7 +56,7 @@ fn get_received_at(env: &Env, user: &Address) -> Option<u32> {
 /// current ledger, starting their cooldown (if one is configured).
 ///
 /// Intended to be called from `transfer_position` and
-/// `transfer_position_with_rewards` — see the module-level "Known gap" note.
+/// `transfer_position_with_rewards` ΓÇö see the module-level "Known gap" note.
 pub fn record_transfer_received(env: &Env, recipient: &Address) {
     env.storage()
         .persistent()
@@ -64,7 +65,7 @@ pub fn record_transfer_received(env: &Env, recipient: &Address) {
 
 /// Clear `user`'s transfer-cooldown marker. Intended to be called once a
 /// user has fully unstaked and later opens a brand-new position by staking
-/// directly (not via transfer) — see the module-level "Known gap" note.
+/// directly (not via transfer) ΓÇö see the module-level "Known gap" note.
 pub fn clear_transfer_received(env: &Env, user: &Address) {
     env.storage()
         .persistent()
@@ -88,16 +89,16 @@ pub fn remaining(env: &Env, user: &Address) -> u32 {
 /// Reverts with `TransferCooldownActive` if `user` received a transferred
 /// position and is still inside the configured cooldown window.
 ///
-/// Intended to be called at the top of `unstake` — see the module-level
+/// Intended to be called at the top of `unstake` ΓÇö see the module-level
 /// "Known gap" note.
 pub fn assert_transfer_cooldown_cleared(env: &Env, user: &Address) -> Result<(), VaultError> {
     if remaining(env, user) > 0 {
-        return Err(VaultError::TransferCooldownActive);
+        return Err(VaultError::UseCooldownFlow);
     }
     Ok(())
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Set the transfer cooldown length, in ledgers. `0` disables the check.
     /// Admin only.
@@ -124,9 +125,25 @@ impl VaultContract {
 
     /// Reverts with `TransferCooldownActive` if `user` is still inside
     /// their transfer cooldown. Exposed directly since `unstake` doesn't
-    /// currently exist on `main` to call this itself — see the module-level
+    /// currently exist on `main` to call this itself ΓÇö see the module-level
     /// "Known gap" note.
     pub fn check_transfer_cooldown(env: Env, user: Address) -> Result<(), VaultError> {
         assert_transfer_cooldown_cleared(&env, &user)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

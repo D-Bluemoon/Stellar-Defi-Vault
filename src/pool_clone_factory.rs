@@ -1,4 +1,4 @@
-//! Pool clone factory (issue #412).
+﻿//! Pool clone factory (issue #412).
 //!
 //! Lets the admin deploy a fresh, independent instance of this same pool
 //! contract from within a running pool, instead of redeploying bytecode by
@@ -24,7 +24,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Bytes, Byte
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Instance key: addresses of every clone deployed by this instance.
 const CLONES_KEY: Symbol = symbol_short!("pcf_cln");
@@ -52,12 +53,12 @@ fn record_clone(env: &Env, clone: &Address) {
     env.storage().instance().set(&CLONES_KEY, &clones);
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Deploys a fresh instance of this pool contract using `wasm_hash` as
     /// the template, initializes it with `config`, and registers it as a
     /// sibling pool in this contract's league. Admin only. `salt` must be
-    /// unique per deployment — reusing one for the same admin/template
+    /// unique per deployment â€” reusing one for the same admin/template
     /// produces the same deterministic address and reverts.
     ///
     /// `config.reward_token` is recorded in the `clone_deployed` event for
@@ -112,3 +113,18 @@ impl VaultContract {
         crate::pool_clone_factory::get_clones(&env)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

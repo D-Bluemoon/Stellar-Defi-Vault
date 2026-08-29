@@ -1,5 +1,5 @@
 use crate::storage::AdminAction;
-use soroban_sdk::{symbol_short, Address, Env};
+use soroban_sdk::{symbol_short, Address, Env, Symbol};
 
 pub fn deposit(env: &Env, depositor: &Address, amount: i128, shares_minted: i128, ledger: u32) {
     let topics = (symbol_short!("deposit"), depositor);
@@ -857,6 +857,45 @@ pub fn milestone_achieved(
         .publish(topics, (milestone_id, milestone_name.clone(), ledger));
 }
 
+/// Emitted when a user successfully completes a quiz and unlocks a reward tier.
+pub fn quiz_completed(
+    env: &Env,
+    user: &Address,
+    quiz_id: u32,
+    tier_unlocked: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_comp"), user);
+    env.events()
+        .publish(topics, (quiz_id, tier_unlocked, ledger));
+}
+
+/// Emitted when a user fails a quiz attempt.
+pub fn quiz_attempt_failed(
+    env: &Env,
+    user: &Address,
+    quiz_id: u32,
+    remaining_attempts: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_fail"), user);
+    env.events()
+        .publish(topics, (quiz_id, remaining_attempts, ledger));
+}
+
+/// Emitted when an admin adds a new quiz.
+pub fn quiz_added(
+    env: &Env,
+    admin: &Address,
+    quiz_id: u32,
+    tier_unlocked: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_add"), admin);
+    env.events()
+        .publish(topics, (quiz_id, tier_unlocked, ledger));
+}
+
 // ── Issue #240: oracle-triggered lock-up release ──────────────────────────────
 
 pub fn condition_triggered(
@@ -1369,4 +1408,35 @@ pub fn reward_claimed_in_token(
         topics,
         (reward_amount, output_token.clone(), output_amount, ledger),
     );
+}
+
+// ── Issue #392: loyalty points events ───────────────────────────────────────
+
+pub fn points_awarded(
+    env: &Env,
+    user: &Address,
+    amount: u32,
+    new_balance: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("loy_awd"), user.clone());
+    env.events().publish(topics, (amount, new_balance, ledger));
+}
+
+pub fn points_redeemed(
+    env: &Env,
+    user: &Address,
+    amount: u32,
+    benefit: crate::storage::PointsBenefit,
+    new_balance: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("loy_rdm"), user.clone());
+    env.events()
+        .publish(topics, (amount, benefit, new_balance, ledger));
+}
+
+pub fn loyalty_config_updated(env: &Env, rules_len: u32, ledger: u32) {
+    let topics = (symbol_short!("loy_cfg"),);
+    env.events().publish(topics, (rules_len, ledger));
 }

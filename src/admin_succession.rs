@@ -1,9 +1,9 @@
-//! Admin succession plan.
+﻿//! Admin succession plan.
 //!
 //! If the admin loses access to its key, the pool would otherwise become
 //! permanently unmanageable. This module lets the admin designate a fallback
 //! "heir" address that can claim admin rights once the current admin has
-//! gone silent — performed no admin action — for a configurable number of
+//! gone silent â€” performed no admin action â€” for a configurable number of
 //! ledgers.
 //!
 //! # Storage
@@ -16,7 +16,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 
 use crate::admin;
 use crate::errors::VaultError;
-use crate::vault::VaultContract;
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 const PLAN_KEY: Symbol = symbol_short!("succ_pln");
 
@@ -44,7 +45,7 @@ pub fn touch_admin_activity(env: &Env) {
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Designates `heir` as the address that may claim admin rights if the
     /// current admin performs no admin action for
@@ -105,3 +106,19 @@ impl VaultContract {
         Ok(())
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

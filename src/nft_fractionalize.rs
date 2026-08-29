@@ -1,10 +1,10 @@
-//! NFT receipt fractionalization.
+﻿//! NFT receipt fractionalization.
 //!
 //! Splits a staker's NFT receipt into N fungible fraction tokens, each
 //! representing a proportional claim on the underlying staking position.
 //! Enables secondary market trading of staking positions.
 //!
-//! While fractionalized, the original staker cannot unstake — the position is
+//! While fractionalized, the original staker cannot unstake â€” the position is
 //! locked until reconstruction burns all fraction tokens and restores the NFT.
 //!
 //! # Storage
@@ -16,7 +16,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// Minimum number of fractions per NFT.
 pub const MIN_FRACTIONS: u32 = 2;
@@ -40,7 +41,7 @@ const FR_HOLDERS_KEY: Symbol = symbol_short!("fr_hold");
 /// Keyed by `(FR_BAL_KEY, owner, holder)`.
 const FR_BAL_KEY: Symbol = symbol_short!("fr_bal");
 
-// ── storage helpers ──────────────────────────────────────────────────────────
+// â”€â”€ storage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn is_locked(env: &Env, user: &Address) -> bool {
     env.storage()
@@ -125,12 +126,12 @@ pub struct FractionalizedNFT {
     pub total_fractions: u32,
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Fractionalize an NFT receipt into `num_fractions` fungible tokens.
     ///
     /// The NFT must exist and not already be fractionalized. `num_fractions`
-    /// must be between 2 and 1000. The caller's position is locked — they
+    /// must be between 2 and 1000. The caller's position is locked â€” they
     /// cannot unstake until all fractions are returned via `reconstruct_nft`.
     pub fn fractionalize_nft(
         env: Env,
@@ -283,3 +284,18 @@ impl VaultContract {
         get_holders(&env, &owner)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

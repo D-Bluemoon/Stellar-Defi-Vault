@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 //! Tests for governance vote weight decay (issue #404).
 
 extern crate std;
@@ -11,7 +11,7 @@ use soroban_sdk::{
 use crate::{
     balance,
     storage::DataKey,
-    vault::{VaultContract, VaultContractClient},
+    crate::{VaultContract, VaultContractClient},
 };
 
 fn set_ledger(env: &Env, sequence: u32) {
@@ -56,7 +56,7 @@ impl<'a> Fixture<'a> {
     }
 
     /// Seed a staker's position directly (no `stake()` entrypoint currently
-    /// works on `main` — see `epoch_reward_cap.rs` and sibling test files'
+    /// works on `main` â€” see `epoch_reward_cap.rs` and sibling test files'
     /// notes on the same pre-existing gap).
     fn seed_position(&self, user: &Address, shares: i128, total_shares: i128, total_deposited: i128) {
         self.env.as_contract(&self.vault_id, || {
@@ -128,7 +128,7 @@ fn voting_resets_decay_clock() {
     set_ledger(&f.env, 1_000 + 20 * 17_280);
     assert!(f.vault.get_effective_vote_weight(&f.alice) < 1_000);
 
-    // Voting again resets the clock — weight is back to full immediately.
+    // Voting again resets the clock â€” weight is back to full immediately.
     f.vault.record_governance_vote(&f.alice);
     assert_eq!(f.vault.get_effective_vote_weight(&f.alice), 1_000);
 }
@@ -142,3 +142,4 @@ fn no_config_means_no_decay() {
     set_ledger(&f.env, 1_000 + 100 * 17_280);
     assert_eq!(f.vault.get_effective_vote_weight(&f.alice), 1_000);
 }
+

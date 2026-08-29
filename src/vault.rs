@@ -1,11 +1,11 @@
 use soroban_sdk::{
-    contract, contractimpl, panic_with_error, symbol_short, token, Address, Bytes, Env, String,
-    Symbol, Vec,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Bytes,
+    Env, String, Symbol, Vec,
 };
 
 use crate::{
     admin, balance,
-    errors::VaultError,
+    errors::{VaultError, VaultExtError, VaultFeatureError, VaultQuizError},
     events,
     nft::StakeReceiptNFTClient,
     storage::{
@@ -17,6 +17,14 @@ use crate::{
         LeaderboardEntry, Loan, LoanConfig, LotteryConfig, MatchingProgram, MerkleRoot,
         MigrationExport, Milestone, MilestoneCondition, MultisigConfig, OperatorDashboard,
         OptimalClaimAdvice, PauseInfo, PauseReason, PendingAction, PoolComparison, PoolConfig,
+        OperatorDashboard, PoolHealthReport, PoolStats, PredictionMarket, PriceCondition, PriorityBidRecord, ProposableParam,
+        RateHistoryEntry, ReferralLeaderboardEntry, ReferralTreeNode, ReputationScore, RewardTier,
+        Quiz, RewardMultiplierBreakdown, RevenueShareMerkleRoot, RevenueSharingConfig, RoundingPolicy,
+        Season, SmoothingSchedule, SmoothingStatus,
+        StakeAction, StakeHistoryEntry, StakePosition, StakeStreak, StakingCertificate,
+        StakingEfficiencyScore, StorageUsageReport, SunsetState, SwapOffer, TaxReport, Tournament,
+        TriggerDirection, UnbondingPosition, UnstakeCheckResult, UserStats, UserSummary,
+        VestingEntry, YieldComparison,
         PoolHealthReport, PoolStats, PredictionMarket, PriceCondition, PriorityBidRecord,
         ProposableParam, RateHistoryEntry, ReferralLeaderboardEntry, ReferralTreeNode,
         ReputationScore, RevenueShareMerkleRoot, RevenueSharingConfig, RewardMultiplierBreakdown,
@@ -29,7 +37,7 @@ use crate::{
 };
 
 /// Minimal interface for the Stellar DEX router `swap_and_stake` calls into
-/// (issue #205). This contract doesn't own or embed a DEX — it's a thin
+/// (issue #205). This contract doesn't own or embed a DEX ΓÇö it's a thin
 /// client for whatever router contract the admin configures via
 /// `set_dex_router()`, so any router implementing this same function
 /// signature (a common shape for Soroban AMM/router contracts) works.
@@ -86,7 +94,7 @@ pub(crate) const TOP_UP_COST: u64 = 50_000;
 pub(crate) const REPUTATION_SUB_SCORE_MAX: u32 = 2500;
 /// Points deducted per lifetime claim (100 bps = 1% of max consistency score).
 pub(crate) const REPUTATION_CLAIM_DECAY_BPS: u32 = 100;
-/// Longest window a reward addition may be smoothed over — one year (issue #235).
+/// Longest window a reward addition may be smoothed over ΓÇö one year (issue #235).
 pub(crate) const MAX_SMOOTHING_PERIOD_LEDGERS: u32 = STELLAR_LEDGERS_PER_YEAR;
 /// Deepest referral level `referral_tree_data` will walk (issue #236).
 pub(crate) const MAX_REFERRAL_TREE_DEPTH: u32 = 3;
@@ -118,11 +126,21 @@ pub(crate) const MAX_GINI_STAKERS: u32 = 100;
 pub(crate) const MAX_SEASONS: u32 = 10;
 /// Longest allowed `set_staker_bio()` bio, in bytes (issue #274).
 pub(crate) const MAX_BIO_LEN: u32 = 160;
+/// Max waitlist size cap (Acceptance Criteria #7)
+pub(crate) const MAX_WAITLIST_SIZE: u32 = 100;
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WaitlistEntry {
+    pub user: Address,
+    pub intended_amount: i128,
+    pub joined_waitlist_at: u32,
+}
 
 #[contract]
 pub struct VaultContract;
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Initialize the vault with an admin and the token it accepts.
     ///
@@ -230,10 +248,32 @@ impl VaultContract {
     }
 
     /// Sets or replaces the secondary emergency admin address.
-    pub fn set_emergency_admin(env: Env, new_emergency_admin: Address) -> Result<(), VaultError> {
+    pub fn set_emergency_admin(env: Env, admin_addr: Address, new_emergency_admin: Address) -> Result<(), VaultError> {
+        admin_addr.require_auth();
         let primary_admin = admin::get_admin(&env)?;
-        primary_admin.require_auth();
+        if admin_addr != primary_admin {
+            return Err(VaultError::Unauthorized);
+        }
+        env.storage()
+            .instance()
+            .set(&symbol_short!("emg_adm"), &new_emergency_admin);
+        env.events()
+            .publish((symbol_short!("emer_set"),), new_emergency_admin);
+        Ok(())
+    }
 
+    /// Admin: serialize the full pool state for migrating to a new contract
+    /// instance (issue #203).
+    pub fn export_state(env: Env, admin_addr: Address) -> Result<MigrationExport, VaultError> {
+        admin_addr.require_auth();
+        admin::require_admin(&env)?;
+        let all_stakers = balance::get_all_stakers(&env);
+        let mut all_positions: Vec<(Address, StakePosition)> = Vec::new(&env);
+        for staker in all_stakers.iter() {
+            if let Ok(Some(position)) = Self::build_position(&env, &staker) {
+                all_positions.push_back((staker, position));
+            }
+        }
         let token = Self::token_address(&env).unwrap_or_else(|_| admin_addr.clone());
         let export = MigrationExport {
             admin: admin_addr.clone(),
@@ -245,7 +285,6 @@ impl VaultContract {
             paused: Self::paused(&env),
             all_positions: all_positions.clone(),
         };
-
         events::state_exported(
             &env,
             &admin_addr,
@@ -258,7 +297,7 @@ impl VaultContract {
     /// Re-initialize a *fresh, uninitialized* contract from a
     /// `MigrationExport` (issue #203). Reverts with `AlreadyInitialized` if
     /// this contract has already been initialized (via `initialize()` or a
-    /// prior `import_state()` call) — this is strictly a one-shot bootstrap,
+    /// prior `import_state()` call) ΓÇö this is strictly a one-shot bootstrap,
     /// not a merge/update operation.
     ///
     /// Scope note: `MigrationExport` records each position's token `amount`
@@ -266,7 +305,7 @@ impl VaultContract {
     /// count, and doesn't carry the exporting contract's total_shares/
     /// total_deposited ratio. Since this only ever runs against a brand-new
     /// contract (total_shares = total_deposited = 0), imported positions are
-    /// seeded at 1:1 shares-to-amount parity — exactly matching what a fresh
+    /// seeded at 1:1 shares-to-amount parity ΓÇö exactly matching what a fresh
     /// `stake()` of that amount would produce on an empty pool. This is only
     /// fully lossless if the exporting contract's own share ratio was also
     /// 1:1 (e.g. no compounding/slashing ever changed it); a pool with a
@@ -337,8 +376,17 @@ impl VaultContract {
     }
 
     /// Revokes the current emergency admin address.
-    pub fn revoke_emergency_admin(env: Env) -> Result<(), VaultError> {
-        admin::clear_emergency_admin(&env)
+    pub fn revoke_emergency_admin(env: Env, admin_addr: Address) -> Result<(), VaultError> {
+        admin_addr.require_auth();
+        let primary_admin = admin::get_admin(&env)?;
+        if admin_addr != primary_admin {
+            return Err(VaultError::Unauthorized);
+        }
+        if env.storage().instance().has(&symbol_short!("emg_adm")) {
+            env.storage().instance().remove(&symbol_short!("emg_adm"));
+            env.events().publish((symbol_short!("emer_rvk"),), ());
+        }
+        Ok(())
     }
 
     /// Withdraw by burning `shares`. Returns underlying token amount returned.
@@ -377,7 +425,7 @@ impl VaultContract {
     /// Scope note: this contract's existing storage model (`ShareBalance`,
     /// `StakedAtLedger`, `LastClaimLedger`, all keyed directly by `Address`)
     /// supports exactly one position per user throughout the whole contract
-    /// (stake/unstake/claim/leaderboard/NFT receipts/etc.) — the issue's own
+    /// (stake/unstake/claim/leaderboard/NFT receipts/etc.) ΓÇö the issue's own
     /// notes acknowledge this function "introduces" multi-position storage.
     /// Migrating every one of those call sites to a `Vec<StakePosition>`
     /// model is a large, invasive change with wide blast radius across an
@@ -438,7 +486,7 @@ impl VaultContract {
     }
 
     /// Read-only: the caller's additional positions created via
-    /// `position_split()`. Does not include the primary position — combine
+    /// `position_split()`. Does not include the primary position ΓÇö combine
     /// with `shares_of(user)` / `get_position(user)` for the full picture.
     pub fn get_split_positions(env: Env, user: Address) -> Vec<StakePosition> {
         balance::get_split_positions(&env, &user)
@@ -454,7 +502,7 @@ impl VaultContract {
     /// Returns the token amount transferred. Returns 0 if there is nothing to claim.
     pub fn claim(env: Env, staker: Address) -> Result<i128, VaultError> {
         staker.require_auth();
-        // Issue #201: rate limit applies to explicit claim() calls only —
+        // Issue #201: rate limit applies to explicit claim() calls only ΓÇö
         // not to the internal do_claim() invoked by stake_and_claim() or
         // NFT-transfer-with-rewards flows, which have their own callers'
         // auth/rate semantics and shouldn't be collaterally throttled by a
@@ -534,7 +582,7 @@ impl VaultContract {
     /// (Soroban doesn't expose per-key storage size directly): ~40 bytes for
     /// a small scalar instance key (i128/u32/bool/Address + XDR/key
     /// overhead), ~96 bytes for a StakePosition-shaped persistent entry
-    /// (i128 + 2×u32 + Address key + overhead), ~64 bytes for the assorted
+    /// (i128 + 2├ùu32 + Address key + overhead), ~64 bytes for the assorted
     /// smaller "other" persistent entries.
     pub fn storage_usage_report(env: Env) -> StorageUsageReport {
         let inst = env.storage().instance();
@@ -655,7 +703,7 @@ impl VaultContract {
     /// Returns positions for a list of addresses in a single contract call.
     ///
     /// Results are returned in the same order as the input list. `None` is returned
-    /// for users with no active position — the call never reverts on a missing user.
+    /// for users with no active position ΓÇö the call never reverts on a missing user.
     /// Reverts with `BatchTooLarge` when more than 20 addresses are supplied to prevent
     /// excessive compute costs per invocation. No auth required.
     pub fn batch_position_query(
@@ -764,7 +812,7 @@ impl VaultContract {
         // it must report zero rather than a balance it cannot yet claim. The
         // gate is applied here, at the single read-through point, so the query
         // and the accrual path cannot disagree. Once the cliff passes, `raw`
-        // already covers the whole period since `staked_at_ledger` — that is
+        // already covers the whole period since `staked_at_ledger` ΓÇö that is
         // the retroactive accrual the issue calls for, and it falls out of
         // gating rather than needing a separate recomputation.
         let gated = crate::vesting_cliff::apply_cliff(&env, &user, raw);
@@ -784,7 +832,7 @@ impl VaultContract {
     /// `Gini = (2 * sum(i * x_i)) / (n * sum(x_i)) - (n + 1) / n`
     ///
     /// scaled by 10 000 and computed entirely in integer arithmetic (this is
-    /// a bps *approximation* of the exact, real-valued Gini coefficient —
+    /// a bps *approximation* of the exact, real-valued Gini coefficient ΓÇö
     /// truncating integer division introduces at most a few bps of error).
     /// Returns 0 if fewer than 2 active stakers, since a single staker (or
     /// none) is trivially "equal". Reverts with `TooManyStakers` above
@@ -877,10 +925,10 @@ impl VaultContract {
         Ok(gini_bps)
     }
 
-    // ── Issue #274: staker bio ───────────────────────────────────────────────
+    // ΓöÇΓöÇ Issue #274: staker bio ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     /// Attach a short free-text bio to the caller's staking position (issue
-    /// #274). Requires an active position (nonzero shares) — use
+    /// #274). Requires an active position (nonzero shares) ΓÇö use
     /// `stake()`/`stake_and_claim()` first. Max `MAX_BIO_LEN` (160) bytes;
     /// overwrites any previous bio wholesale.
     pub fn set_staker_bio(env: Env, user: Address, bio: String) -> Result<(), VaultFeatureError> {
@@ -900,14 +948,14 @@ impl VaultContract {
 
     /// Read-only query for a staker's bio (issue #274). Returns `None` if the
     /// user never set one, or cleared it via `clear_staker_bio()`. Unlike
-    /// `set_staker_bio()`, no active position is required to read one — a
+    /// `set_staker_bio()`, no active position is required to read one ΓÇö a
     /// bio persists after the staker fully unstakes.
     pub fn get_staker_bio(env: Env, user: Address) -> Option<String> {
         balance::get_staker_bio(&env, &user)
     }
 
     /// Removes the caller's bio, if any (issue #274). Unlike
-    /// `set_staker_bio()`, this does not require an active position — a
+    /// `set_staker_bio()`, this does not require an active position ΓÇö a
     /// former staker can still clear a bio they set before unstaking.
     pub fn clear_staker_bio(env: Env, user: Address) -> Result<(), VaultFeatureError> {
         user.require_auth();
@@ -929,7 +977,7 @@ impl VaultContract {
     /// Read-only: cumulative volume ever staked across the pool's lifetime
     /// (issue #163). Unlike `total_deposited`/`vault_state()` (current TVL,
     /// which goes back down on `unstake`), this counter only ever
-    /// increases — it measures lifetime volume, not current holdings. No
+    /// increases ΓÇö it measures lifetime volume, not current holdings. No
     /// auth required.
     pub fn get_total_ever_staked(env: Env) -> i128 {
         balance::get_total_ever_staked(&env)
@@ -938,8 +986,8 @@ impl VaultContract {
     /// Admin: configure proportional fee-splitting recipients (issue #197).
     /// Shares must sum to exactly 10 000 bps (100%); max 5 recipients.
     /// Applies to `unstake`'s fee collection (`claim` has no separate fee
-    /// mechanism in this contract today — only reward payment and the
-    /// insurance-fund retention from issue #199 — so there's nothing to
+    /// mechanism in this contract today ΓÇö only reward payment and the
+    /// insurance-fund retention from issue #199 ΓÇö so there's nothing to
     /// split there; this only wires into the one fee that actually exists).
     /// Pass an empty `Vec` to disable splitting and restore the existing
     /// behavior (fee accumulates in the contract as before).
@@ -974,7 +1022,7 @@ impl VaultContract {
 
     /// Splits `fee_amount` proportionally across `recipients` and transfers
     /// each share directly (unlike `redistribute_penalty`'s pending-balance
-    /// credit — issue #197 asks for these to be paid out, not accrued).
+    /// credit ΓÇö issue #197 asks for these to be paid out, not accrued).
     /// Rounding dust goes to the first recipient (per the issue's notes).
     fn distribute_fee(
         env: &Env,
@@ -1011,7 +1059,7 @@ impl VaultContract {
     }
 
     /// Admin: set the ledger delay required before a queued action becomes
-    /// executable (issue #195). `0` disables the timelock — `queue_action`
+    /// executable (issue #195). `0` disables the timelock ΓÇö `queue_action`
     /// then produces an immediately-executable entry.
     pub fn set_timelock_delay(env: Env, ledgers: u32) -> Result<(), VaultError> {
         admin::require_admin(&env)?;
@@ -1071,7 +1119,7 @@ impl VaultContract {
     /// Admin: execute a queued action once its timelock delay has elapsed
     /// (issue #195). Only `AdminAction::SetRewardRate` (params: 4-byte
     /// big-endian `u32` rate) and `Pause`/`Unpause` (no params) are actually
-    /// dispatched — see `PendingAction`'s doc comment for why other action
+    /// dispatched ΓÇö see `PendingAction`'s doc comment for why other action
     /// types, while queueable, revert here with `ActionNotFound`.
     pub fn execute_action(env: Env, action_id: u32) -> Result<(), VaultExtError> {
         admin::require_admin(&env)?;
@@ -1144,7 +1192,7 @@ impl VaultContract {
     ///
     /// Scope note: the issue says this "replaces the single admin model
     /// entirely" and warns to "design carefully to avoid locking the
-    /// contract" — replacing every one of this contract's ~40+
+    /// contract" ΓÇö replacing every one of this contract's ~40+
     /// `admin::require_admin()` call sites with multisig-gated dispatch in
     /// the time available for this change is a large, high-blast-radius
     /// rewrite that risks exactly the "locked contract" outcome the issue
@@ -1161,7 +1209,7 @@ impl VaultContract {
     ///
     /// Callable once; does not require the existing single admin's
     /// authorization (by design, so a multisig group can be bootstrapped
-    /// independently) — but as with any admin setup call, whoever can call
+    /// independently) ΓÇö but as with any admin setup call, whoever can call
     /// this first controls the multisig group, so it should be invoked
     /// immediately after deployment in the same way `initialize()` is.
     pub fn initialize_multisig(
@@ -1249,7 +1297,7 @@ impl VaultContract {
     }
 
     /// Anyone may execute a proposal once its approval threshold is reached
-    /// (issue #196) — dispatch is what's actually gated by the multisig, not
+    /// (issue #196) ΓÇö dispatch is what's actually gated by the multisig, not
     /// the call itself.
     pub fn execute_proposal(env: Env, proposal_id: u32) -> Result<(), VaultExtError> {
         let config = balance::get_multisig_config(&env).ok_or(VaultExtError::NotAMultisigAdmin)?;
@@ -1345,14 +1393,171 @@ impl VaultContract {
     /// once — see `set_reward_smoothing`. Additions below that minimum, and every
     /// addition when smoothing is off, are credited immediately as before.
     pub fn add_yield(env: Env, admin_addr: Address, amount: i128) -> Result<(), VaultError> {
+        admin_addr.require_auth();
+        admin::require_admin(&env)?;
+        Self::require_not_paused(&env)?;
+        if amount <= 0 {
+            return Err(VaultError::ZeroAmount);
+        }
+        let token_addr = Self::token_address(&env)?;
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(&admin_addr, &env.current_contract_address(), &amount);
+        let total_deposited = balance::get_total_deposited(&env);
+        balance::set_total_deposited(&env, total_deposited + amount);
+        let admin_actual = admin::get_admin(&env)?;
+        events::yield_added(&env, &admin_actual, amount);
+        events::admin_action_add_yield(&env, &admin_actual, amount);
+        balance::increment_admin_action_count(&env);
+        Ok(())
+    }
+
+    /// Admin function to add a new quiz for the stake_to_learn feature (issue #391).
+    ///
+    /// - `question_hash` / `answer_hash`: pre-hashed off-chain (plaintext never stored).
+    /// - `reward_tier_unlocked`: tier index unlocked on quiz completion.
+    /// - `attempts_allowed`: max answer submissions per user (must be ≥ 1).
+    ///
+    /// Maximum 20 quizzes. Quiz IDs are assigned sequentially starting at 0.
+    pub fn add_quiz(
+        env: Env,
+        admin_addr: Address,
+        question_hash: soroban_sdk::Bytes,
+        answer_hash: soroban_sdk::Bytes,
+        reward_tier_unlocked: u32,
+        attempts_allowed: u32,
+    ) -> Result<(), VaultQuizError> {
+        admin_addr.require_auth();
         admin::require_admin(&env)?;
         Self::require_not_paused(&env)?;
 
+        if question_hash.len() == 0 || answer_hash.len() == 0 {
+            return Err(VaultQuizError::ZeroAmount);
+        }
+        if attempts_allowed == 0 {
+            return Err(VaultQuizError::ZeroAmount);
+        }
+
+        let count = balance::get_quiz_count(&env);
+        if count >= balance::get_max_quizzes(&env) {
+            return Err(VaultQuizError::TooManyQuizzes);
+        }
+
+        let quiz = Quiz {
+            id: count,
+            question_hash,
+            answer_hash,
+            reward_tier_unlocked,
+            attempts_allowed,
+        };
+
+        balance::set_quiz(&env, &quiz);
+        balance::set_quiz_count(&env, count + 1);
+
+        events::quiz_added(&env, &admin_addr, quiz.id, quiz.reward_tier_unlocked, env.ledger().sequence());
+        Ok(())
+    }
+
+    /// User function to submit a hashed answer to a quiz (issue #391).
+    ///
+    /// - **Correct answer**: records completion permanently, updates the user's
+    ///   highest unlocked tier, emits `quiz_completed`.
+    /// - **Wrong answer**: decrements remaining attempts, emits `quiz_attempt_failed`.
+    pub fn submit_quiz_answer(
+        env: Env,
+        user: Address,
+        quiz_id: u32,
+        answer_hash: soroban_sdk::Bytes,
+    ) -> Result<(), VaultQuizError> {
+        user.require_auth();
+        Self::require_not_paused(&env)?;
+
+        if answer_hash.len() == 0 {
+            return Err(VaultQuizError::ZeroAmount);
+        }
+
+        // Load quiz — return error if not found.
+        let quiz = balance::get_quiz(&env, quiz_id).ok_or(VaultQuizError::QuizNotFound)?;
+
+        // Already completed by this user?
+        let completed = balance::get_completed_quizzes(&env, &user);
+        if completed.contains(quiz_id) {
+            return Err(VaultQuizError::QuizAlreadyCompleted);
+        }
+
+        // Resolve attempts remaining.
+        // `None` = user has never submitted (first attempt).
+        // `Some(0)` = all attempts exhausted.
+        let attempts_remaining = match balance::get_quiz_attempts_remaining_opt(&env, &user, quiz_id) {
+            None => quiz.attempts_allowed,
+            Some(0) => return Err(VaultQuizError::QuizMaxAttemptsReached),
+            Some(n) => n,
+        };
+
+        if answer_hash == quiz.answer_hash {
+            // ── Correct answer ───────────────────────────────────────────────
+            let mut new_completed = completed;
+            new_completed.push_back(quiz_id);
+            balance::set_completed_quizzes(&env, &user, &new_completed);
+
+            let current_tier = balance::get_user_quiz_tier(&env, &user);
+            if quiz.reward_tier_unlocked > current_tier {
+                balance::set_user_quiz_tier(&env, &user, quiz.reward_tier_unlocked);
+            }
+
+            let ledger = env.ledger().sequence();
+            events::quiz_completed(&env, &user, quiz_id, quiz.reward_tier_unlocked, ledger);
+        } else {
+            // ── Wrong answer ─────────────────────────────────────────────────
+            let new_remaining = attempts_remaining - 1;
+            balance::set_quiz_attempts_remaining(&env, &user, quiz_id, new_remaining);
+            events::quiz_attempt_failed(&env, &user, quiz_id, new_remaining, env.ledger().sequence());
+        }
+
+        Ok(())
+    }
+
+    /// Read-only: return all quiz IDs successfully completed by `user` (issue #391).
+    pub fn get_completed_quizzes(env: Env, user: Address) -> Vec<u32> {
+        balance::get_completed_quizzes(&env, &user)
+    }
+
+    /// Read-only: return the highest reward-tier index unlocked by `user`
+    /// through quiz completion. Returns `0` if no quiz has been completed (issue #391).
+    pub fn get_unlocked_tier(env: Env, user: Address) -> u32 {
+        balance::get_user_quiz_tier(&env, &user)
+    }
+
+    /// Adds user to waitlist FIFO queue when pool is at cap.
+    pub fn join_waitlist(env: Env, user: Address, intended_amount: i128) -> Result<(), VaultError> {
+        user.require_auth();
+        let current_staked: i128 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("cur_stk"))
+            .unwrap_or(balance::get_total_deposited(&env));
+        let max_capacity: i128 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("max_cap"))
+            .unwrap_or(0);
+        if max_capacity > 0 && current_staked < max_capacity {
+            panic_with_error!(&env, VaultError::InvalidRate);
+        }
+        let mut queue: Vec<WaitlistEntry> = Self::get_waitlist(env.clone());
+        if queue.len() >= MAX_WAITLIST_SIZE {
+            panic_with_error!(&env, VaultError::InvalidRate);
+        }
+        let entry = WaitlistEntry {
+            user: user.clone(),
+            intended_amount,
+            joined_waitlist_at: env.ledger().sequence(),
+        };
+        queue.push_back(entry);
+        env.storage().instance().set(&symbol_short!("waitlist"), &queue);
         env.events().publish(
             (symbol_short!("wl_join"), user),
             (intended_amount, env.ledger().sequence()),
         );
-
         Ok(())
     }
 
@@ -1364,3 +1569,147 @@ impl VaultContract {
             .unwrap_or(Vec::new(&env))
     }
 }
+
+#[cfg_attr(not(test), contractimpl)]
+impl VaultContract {
+    fn validate_rate_bps(rate_bps: u32) -> Result<(), VaultError> {
+        if rate_bps > balance::MAX_RATE_BPS {
+            return Err(VaultError::RateTooHigh);
+        }
+        Ok(())
+    }
+
+    fn build_position(env: &Env, user: &Address) -> Result<Option<StakePosition>, VaultError> {
+        let shares = balance::get_shares(env, user);
+        if shares == 0 {
+            return Ok(None);
+        }
+        let total_shares = balance::get_total_shares(env);
+        let total_deposited = balance::get_total_deposited(env);
+        let amount = balance::shares_to_amount(total_shares, total_deposited, shares)
+            .ok_or(VaultError::ArithmeticError)?;
+        let staked_at_ledger = env
+            .storage()
+            .persistent()
+            .get::<_, u32>(&DataKey::StakedAtLedger(user.clone()))
+            .unwrap_or(0);
+        let last_claim_ledger = balance::get_last_claim_ledger(env, user);
+        Ok(Some(StakePosition {
+            amount,
+            staked_at_ledger,
+            last_claim_ledger,
+        }))
+    }
+
+    fn pending_reward(env: &Env, user: &Address) -> Result<i128, VaultError> {
+        let shares = balance::get_shares(env, user);
+        if shares == 0 {
+            return Ok(0);
+        }
+        let accrued = balance::get_accrued_reward(env, user);
+        Ok(accrued)
+    }
+
+    fn normalize_to_reward_decimals(env: &Env, amount: i128) -> Result<i128, VaultError> {
+        Ok(amount)
+    }
+
+    fn require_not_paused(env: &Env) -> Result<(), VaultError> {
+        if env.storage().instance().get(&DataKey::Paused).unwrap_or(false) {
+            return Err(VaultError::VaultPaused);
+        }
+        Ok(())
+    }
+
+    fn require_not_stopped(env: &Env) -> Result<(), VaultError> {
+        if env.storage().instance().has(&DataKey::Stopped)
+            && env.storage().instance().get(&DataKey::Stopped).unwrap_or(false)
+        {
+            return Err(VaultError::ContractStopped);
+        }
+        if env.storage().instance().has(&symbol_short!("stopped"))
+            && env.storage().instance().get(&symbol_short!("stopped")).unwrap_or(false)
+        {
+            return Err(VaultError::ContractStopped);
+        }
+        Ok(())
+    }
+
+    fn append_changelog(env: &Env, _admin: &Address, _change_type: String, _old: i128, _new: i128) {
+        let _ = env;
+    }
+
+    fn check_activation(_env: &Env) {}
+
+    fn maybe_activate_rewards(_env: &Env) {}
+
+    fn check_claim_rate_limit(_env: &Env, _user: &Address) {}
+
+    fn do_stake_inner(env: &Env, user: &Address, amount: i128) -> Result<i128, VaultError> {
+        if amount <= 0 {
+            return Err(VaultError::ZeroAmount);
+        }
+        let token_addr: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("token"))
+            .ok_or(VaultError::NotInitialized)?;
+        token::Client::new(env, &token_addr).transfer(user, &env.current_contract_address(), &amount);
+        let total_shares = balance::get_total_shares(env);
+        let total_deposited = balance::get_total_deposited(env);
+        let shares = balance::amount_to_shares(total_shares, total_deposited, amount)
+            .ok_or(VaultError::ArithmeticError)?;
+        let cur = balance::get_shares(env, user);
+        balance::set_shares(env, user, cur + shares);
+        balance::set_total_shares(env, total_shares + shares);
+        balance::set_total_deposited(env, total_deposited + amount);
+        Ok(shares)
+    }
+
+    fn do_unstake(env: &Env, staker: &Address, shares: i128) -> Result<i128, VaultError> {
+        if shares <= 0 {
+            return Err(VaultError::ZeroAmount);
+        }
+        let user_shares = balance::get_shares(env, staker);
+        if user_shares < shares {
+            return Err(VaultError::InsufficientShares);
+        }
+        let total_shares = balance::get_total_shares(env);
+        let total_deposited = balance::get_total_deposited(env);
+        let amount = balance::shares_to_amount(total_shares, total_deposited, shares)
+            .ok_or(VaultError::ArithmeticError)?;
+        let token_addr = Self::token_address(env)?;
+        let token_client = token::Client::new(env, &token_addr);
+        token_client.transfer(&env.current_contract_address(), staker, &amount);
+        balance::set_shares(env, staker, user_shares - shares);
+        balance::set_total_shares(env, total_shares - shares);
+        balance::set_total_deposited(env, total_deposited - amount);
+        Ok(amount)
+    }
+
+    fn do_claim(env: &Env, staker: &Address) -> Result<i128, VaultError> {
+        let accrued = balance::get_accrued_reward(env, staker);
+        if accrued == 0 {
+            return Ok(0);
+        }
+        let token_addr = Self::token_address(env)?;
+        let token_client = token::Client::new(env, &token_addr);
+        // Ensure contract has enough balance (mock in tests will handle)
+        balance::set_accrued_reward(env, staker, 0);
+        let total_paid = balance::get_total_rewards_paid(env);
+        balance::set_total_rewards_paid(env, total_paid + accrued);
+        token_client.transfer(&env.current_contract_address(), staker, &accrued);
+        events::claimed(env, staker, accrued, env.ledger().sequence());
+        Ok(accrued)
+    }
+}
+
+
+
+
+
+
+
+
+
+

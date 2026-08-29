@@ -1,4 +1,4 @@
-//! Daily token velocity limiter (issue #411).
+﻿//! Daily token velocity limiter (issue #411).
 //!
 //! Distinct from `epoch_reward_cap.rs` (issue #270's per-user epoch cap):
 //! this caps total reward token outflow across ALL stakers in any 24-hour
@@ -13,7 +13,7 @@
 //! Like `epoch_reward_cap.rs`, this exposes its own capped claim entrypoint
 //! (`claim_with_daily_velocity_limit`) rather than editing `vault.rs`'s
 //! existing `claim()`. `unstake`'s auto-claim isn't touched by this module
-//! at all, so it naturally bypasses the daily limit as required — users can
+//! at all, so it naturally bypasses the daily limit as required â€” users can
 //! always exit.
 //!
 //! # Storage
@@ -27,7 +27,9 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::{VaultContract, LEDGERS_PER_DAY};
+use crate::VaultContract;
+use crate::vault::{LEDGERS_PER_DAY};
+use crate::vault::VaultContractClient;
 
 const LIMIT_KEY: Symbol = symbol_short!("dv_cfg");
 const TRACKER_KEY: Symbol = symbol_short!("dv_trk");
@@ -114,7 +116,7 @@ fn transfer_reward(env: &Env, user: &Address, amount: i128) -> Result<(), VaultE
     Ok(())
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Sets the pool-wide cap on reward token outflow per rolling day.
     /// Admin only. `0` disables the limit.
@@ -243,3 +245,18 @@ impl VaultContract {
         Ok(payable)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

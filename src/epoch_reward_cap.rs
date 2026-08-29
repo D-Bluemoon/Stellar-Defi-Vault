@@ -1,4 +1,4 @@
-//! Epoch reward outflow cap.
+﻿//! Epoch reward outflow cap.
 //!
 //! Caps total reward token outflow within a single epoch window so a
 //! coordinated mass-claim event cannot drain the reward pool unexpectedly
@@ -23,7 +23,8 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::events;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 const CAP_CONFIG_KEY: Symbol = symbol_short!("epc_cap");
 const TRACKER_KEY: Symbol = symbol_short!("epc_trk");
@@ -86,7 +87,7 @@ fn remove_deferred(env: &Env, user: &Address) {
 
 /// Add `amount` to `user`'s deferred-reward bucket, claimable via
 /// `claim_deferred_reward` once `next_epoch_start` is reached. Shared by any
-/// claim path that needs to queue an overflow amount rather than lose it —
+/// claim path that needs to queue an overflow amount rather than lose it â€”
 /// currently this module's own `claim_epoch_capped_reward` and
 /// `minimum_reserve_ratio.rs`'s `claim_with_reserve_floor` (issue #405),
 /// which reuses this same bucket per that issue's own notes.
@@ -119,7 +120,7 @@ fn current_tracker(env: &Env, config: &EpochRewardCapConfig) -> EpochRewardTrack
     }
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Configure the per-epoch reward outflow cap. Admin only. Starts a fresh
     /// tracking window from the current ledger.
@@ -273,3 +274,18 @@ impl VaultContract {
         Ok(deferred.amount)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

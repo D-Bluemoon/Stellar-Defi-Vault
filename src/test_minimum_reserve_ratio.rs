@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 //! Tests for the minimum reward-reserve ratio floor (issue #405).
 
 extern crate std;
@@ -10,7 +10,7 @@ use soroban_sdk::{
 
 use crate::{
     balance,
-    vault::{VaultContract, VaultContractClient},
+    crate::{VaultContract, VaultContractClient},
 };
 
 fn set_ledger(env: &Env, sequence: u32) {
@@ -144,3 +144,4 @@ fn floor_not_met_when_reserves_thin() {
 
     assert!(!f.vault.is_reserve_floor_met());
 }
+

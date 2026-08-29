@@ -1,4 +1,4 @@
-//! Governance voting power decay for long-inactive participants (issue #404).
+﻿//! Governance voting power decay for long-inactive participants (issue #404).
 //!
 //! Builds on issue #160 (governance voting) and the `GovernanceProposal` /
 //! `vote_weight_at` groundwork already in `storage.rs` / `vault.rs`. A staker
@@ -11,7 +11,7 @@
 //! # Wiring
 //!
 //! There is currently no callable `vote()` / `create_proposal()` entrypoint
-//! on `main` to hook a "last voted" update into — `GovernanceProposal` and
+//! on `main` to hook a "last voted" update into â€” `GovernanceProposal` and
 //! `ProposableParam` exist as storage types (see `storage.rs`, `balance.rs`)
 //! but nothing in this crate currently creates or votes on one (same gap
 //! documented by `transfer_cooldown.rs` for `transfer_position`). So, matching
@@ -40,7 +40,9 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient, BOOST_BPS_BASE, LEDGERS_PER_DAY};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
+use crate::vault::{ BOOST_BPS_BASE, LEDGERS_PER_DAY};
 
 /// Instance-storage key for the decay configuration.
 const DECAY_CFG_KEY: Symbol = symbol_short!("gpd_cfg");
@@ -65,7 +67,7 @@ pub struct GovernanceDecayConfig {
     pub decay_rate_bps: u32,
 }
 
-// ── storage helpers ──────────────────────────────────────────────────────────
+// â”€â”€ storage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn get_config(env: &Env) -> Option<GovernanceDecayConfig> {
     env.storage().instance().get(&DECAY_CFG_KEY)
@@ -157,7 +159,7 @@ fn compute_effective_weight(env: &Env, user: &Address) -> (i128, i128, u32) {
     (raw, effective, epochs_inactive)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Configure governance vote-weight decay. Admin only.
     ///
@@ -195,7 +197,7 @@ impl VaultContract {
     }
 
     /// A user's effective governance vote weight with inactivity decay
-    /// applied. Public — no auth required. Emits `governance_decay_applied`
+    /// applied. Public â€” no auth required. Emits `governance_decay_applied`
     /// when decay actually reduces the weight below the raw position amount.
     pub fn get_effective_vote_weight(env: Env, user: Address) -> i128 {
         let (raw, effective, epochs_inactive) = compute_effective_weight(&env, &user);
@@ -213,7 +215,7 @@ impl VaultContract {
     /// Record that `user` just participated in governance, resetting their
     /// decay clock. Requires the user's own auth.
     ///
-    /// Intended to be called from `vote()` once it is restored — see the
+    /// Intended to be called from `vote()` once it is restored â€” see the
     /// module-level "Wiring" note. Callable and testable directly until then.
     pub fn record_governance_vote(env: Env, user: Address) -> Result<(), VaultError> {
         user.require_auth();
@@ -232,3 +234,12 @@ impl VaultContract {
         get_last_vote_ledger(&env, &user)
     }
 }
+
+
+
+
+
+
+
+
+

@@ -1,10 +1,10 @@
-//! Coordinated stake/unstake pattern detector (issue #406).
+﻿//! Coordinated stake/unstake pattern detector (issue #406).
 //!
 //! Heuristically flags groups of addresses whose staking activity is
-//! suspiciously correlated in timing and amount — a signal of possible
+//! suspiciously correlated in timing and amount â€” a signal of possible
 //! governance manipulation, wash trading, or Sybil attacks. Flagging is
 //! purely advisory: it never blocks a stake, unstake, or claim, and false
-//! positives are expected — the alerts exist for admin review, not
+//! positives are expected â€” the alerts exist for admin review, not
 //! enforcement.
 //!
 //! # Data source
@@ -32,7 +32,9 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient, MAX_GINI_STAKERS};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
+use crate::vault::{ MAX_GINI_STAKERS};
 
 /// Instance-storage key for the rolling alert list.
 const ALERTS_KEY: Symbol = symbol_short!("cld_alrt");
@@ -107,6 +109,8 @@ fn within_amount_tolerance(a: i128, b: i128) -> bool {
 }
 
 /// One user's latest recorded staking activity, if any.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct LatestActivity {
     staker: Address,
     ledger: u32,
@@ -117,7 +121,7 @@ struct LatestActivity {
 /// patterns, and return any newly-raised alerts (also persisted into the
 /// rolling alert list). Bounded to the first `MAX_GINI_STAKERS` registered
 /// stakers, matching `get_reward_gini_coefficient`'s scan bound (issue
-/// #275) — this is a heuristic, best-effort scan, not an exhaustive audit.
+/// #275) â€” this is a heuristic, best-effort scan, not an exhaustive audit.
 fn scan_for_collusion(env: &Env) -> Vec<CollusionAlert> {
     let all_stakers = balance::get_all_stakers(env);
     let scan_len = all_stakers.len().min(MAX_GINI_STAKERS);
@@ -126,7 +130,7 @@ fn scan_for_collusion(env: &Env) -> Vec<CollusionAlert> {
     let mut new_alerts: Vec<CollusionAlert> = Vec::new(env);
     let mut latest_events: Vec<LatestActivity> = Vec::new(env);
 
-    // ── wash pattern: same address, 3+ activity snapshots within the window ──
+    // â”€â”€ wash pattern: same address, 3+ activity snapshots within the window â”€â”€
     for i in 0..scan_len {
         let staker = all_stakers.get(i).unwrap();
         let Some(history) = balance::get_stake_history(env, &staker) else {
@@ -167,7 +171,7 @@ fn scan_for_collusion(env: &Env) -> Vec<CollusionAlert> {
         }
     }
 
-    // ── coordinated stake/unstake: 3+ addresses, similar time + amount ──────
+    // â”€â”€ coordinated stake/unstake: 3+ addresses, similar time + amount â”€â”€â”€â”€â”€â”€
     let n = latest_events.len();
     let mut used = Vec::new(env);
     for _ in 0..n {
@@ -222,7 +226,7 @@ fn scan_for_collusion(env: &Env) -> Vec<CollusionAlert> {
     new_alerts
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Scan recent staking activity for coordinated stake/unstake and wash
     /// patterns. Admin only. Any newly-detected alerts are appended to the
@@ -267,7 +271,7 @@ impl VaultContract {
 
         let mut alerts = get_alerts(&env);
         if index >= alerts.len() {
-            return Err(VaultError::AlertNotFound);
+            return Err(VaultError::InvalidRate);
         }
         alerts.remove(index);
         set_alerts(&env, &alerts);
@@ -279,3 +283,13 @@ impl VaultContract {
         Ok(())
     }
 }
+
+
+
+
+
+
+
+
+
+

@@ -1,10 +1,10 @@
-use crate::interface::IStakingPoolClient;
+﻿use crate::interface::IStakingPoolClient;
 use soroban_sdk::{contract, contractimpl, Address, Env};
 
 #[contract]
 pub struct ExampleConsumer;
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl ExampleConsumer {
     pub fn get_pool_info(env: Env, pool: Address, user: Address) -> (i128, i128) {
         let client = IStakingPoolClient::new(&env, &pool);
@@ -13,3 +13,6 @@ impl ExampleConsumer {
         (staked, pending)
     }
 }
+
+
+
