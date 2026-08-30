@@ -49,7 +49,7 @@ mod test_validator_rewards;
 #[cfg(test)]
 mod test_features_287_290;
 
-pub mod event_verbosity;
+pub mod insurance_snapshot;
 #![no_std]
 
 mod admin;
