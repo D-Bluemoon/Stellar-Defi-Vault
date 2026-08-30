@@ -1,4 +1,4 @@
-#![cfg(test)]
+﻿#![cfg(test)]
 
 extern crate std;
 
@@ -13,7 +13,7 @@ use crate::{
     nft::{StakeReceiptNFT, StakeReceiptNFTClient},
     storage::{
         AdminAction, ChangelogEntry, DebtNFT, FeeRecipient, HalvingConfig, MilestoneCondition, PauseReason,
-        ProposableParam, RoundingPolicy, StakingCertificate, SunsetState, TriggerDirection,
+        ProposableParam, RewardTier, RoundingPolicy, StakingCertificate, SunsetState, TriggerDirection,
         UnstakeCheckResult,
     },
     vault::{
@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn create_token<'a>(
     env: &Env,
@@ -49,12 +49,12 @@ fn boost_schedule(env: &Env, tiers: &[(u32, u32)]) -> Vec<(u32, u32)> {
     schedule
 }
 
-// ── Mock external yield protocol (issue #215 tests) ──────────────────────────
+// â”€â”€ Mock external yield protocol (issue #215 tests) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[contract]
 struct MockYieldProtocol;
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl MockYieldProtocol {
     pub fn deposit(_env: Env, _depositor: Address, _amount: i128) {}
 
@@ -70,7 +70,7 @@ impl MockYieldProtocol {
     }
 }
 
-// ── Mock DEX router (issue #205 tests) ───────────────────────────────────────
+// â”€â”€ Mock DEX router (issue #205 tests) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Swaps at a fixed rate: `amount_in / rate_divisor` of `to_token` per unit of
 /// `from_token`. Pass `rate_divisor = 1` for a 1:1 swap. Tests must pre-fund
@@ -78,7 +78,7 @@ impl MockYieldProtocol {
 #[contract]
 struct MockDexRouter;
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl MockDexRouter {
     pub fn set_rate_divisor(env: Env, divisor: i128) {
         env.storage()
@@ -106,12 +106,12 @@ impl MockDexRouter {
     }
 }
 
-// ── Mock price oracle (issue #240 tests) ──────────────────────────────────────
+// â”€â”€ Mock price oracle (issue #240 tests) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[contract]
 struct MockOracle;
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl MockOracle {
     pub fn set_price(env: Env, asset_id: soroban_sdk::String, price: i128) {
         env.storage()
@@ -206,7 +206,7 @@ impl<'a> VaultFixture<'a> {
     }
 }
 
-// ── initialization ────────────────────────────────────────────────────────────
+// â”€â”€ initialization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_initialize_sets_state() {
@@ -269,7 +269,7 @@ fn test_contract_metadata_returns_constants() {
     );
 }
 
-// ── deposit ───────────────────────────────────────────────────────────────────
+// â”€â”€ deposit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_first_deposit_mints_1to1_shares() {
@@ -331,7 +331,7 @@ fn test_two_depositors_get_proportional_shares() {
     assert_eq!(total_shares, 500_000);
 }
 
-// ── withdraw ──────────────────────────────────────────────────────────────────
+// â”€â”€ withdraw â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_withdraw_returns_correct_amount() {
@@ -376,7 +376,7 @@ fn test_full_withdraw_clears_shares() {
     assert_eq!(total_deposited, 0);
 }
 
-// ── preview_redeem ────────────────────────────────────────────────────────────
+// â”€â”€ preview_redeem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_preview_redeem_matches_actual_withdraw() {
@@ -389,7 +389,7 @@ fn test_preview_redeem_matches_actual_withdraw() {
     assert_eq!(preview, actual);
 }
 
-// ── pause / unpause ───────────────────────────────────────────────────────────
+// â”€â”€ pause / unpause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_pause_blocks_deposit() {
@@ -445,13 +445,13 @@ fn test_is_paused_returns_true_after_pause() {
     assert!(f.vault.is_paused());
 }
 
-// ── admin transfer ────────────────────────────────────────────────────────────
+// â”€â”€ admin transfer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_transfer_admin() {
     let f = VaultFixture::new();
     f.vault.transfer_admin(&f.bob);
-    // Bob is now admin — he should be able to pause
+    // Bob is now admin â€” he should be able to pause
     f.vault.pause(
         &PauseReason::Other,
         &soroban_sdk::String::from_str(&f.env, "test"),
@@ -472,7 +472,7 @@ fn test_pool_created_by_unchanged_after_admin_transfer() {
     assert_eq!(f.vault.pool_created_by(), f.admin);
 }
 
-// ── yield accrual ────────────────────────────────────────────────────────────
+// â”€â”€ yield accrual â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_add_yield_increases_share_price() {
@@ -531,7 +531,7 @@ fn test_add_yield_zero_fails() {
     assert_eq!(result, Err(Ok(VaultError::ZeroAmount)));
 }
 
-// ── withdrawal limit (Issue #8) ──────────────────────────────────────────────
+// â”€â”€ withdrawal limit (Issue #8) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_withdrawal_limit() {
@@ -639,7 +639,7 @@ fn test_no_withdrawal_limit_by_default() {
     assert_eq!(amount, 500_000);
 }
 
-// ── event emission (Issue #7) ─────────────────────────────────────────────────
+// â”€â”€ event emission (Issue #7) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_deposit_emits_event() {
@@ -796,7 +796,7 @@ fn test_yield_added_emits_event() {
     assert_eq!(yield_events.len(), 1);
 }
 
-// ── error handling edge cases (Issue #9) ─────────────────────────────────────
+// â”€â”€ error handling edge cases (Issue #9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_deposit_negative_amount_fails() {
@@ -832,6 +832,45 @@ fn test_pause_requires_admin_auth() {
 }
 
 #[test]
+fn test_emergency_admin_can_pause() {
+    let f = VaultFixture::new();
+    f.vault.with_source_account(&f.admin).set_emergency_admin(&f.admin, &f.bob);
+    f.vault.with_source_account(&f.bob).pause(
+        &PauseReason::Other,
+        &soroban_sdk::String::from_str(&f.env, "crisis"),
+    );
+    assert!(f.vault.is_paused());
+}
+
+#[test]
+fn test_emergency_admin_cannot_change_rate() {
+    let f = VaultFixture::new();
+    f.vault.with_source_account(&f.admin).set_emergency_admin(&f.admin, &f.bob);
+    let result = f.vault.with_source_account(&f.bob).try_set_reward_rate_bps(&500);
+    assert_eq!(result, Err(Ok(VaultError::Unauthorized)));
+}
+
+#[test]
+fn test_revoked_emergency_admin_is_rejected() {
+    let f = VaultFixture::new();
+    f.vault.with_source_account(&f.admin).set_emergency_admin(&f.admin, &f.bob);
+    f.vault.with_source_account(&f.admin).revoke_emergency_admin(&f.admin);
+    let result = f.vault.with_source_account(&f.bob).try_pause(
+        &PauseReason::Other,
+        &soroban_sdk::String::from_str(&f.env, "crisis"),
+    );
+    assert_eq!(result, Err(Ok(VaultError::Unauthorized)));
+}
+
+#[test]
+fn test_primary_admin_keeps_full_access() {
+    let f = VaultFixture::new();
+    f.vault.with_source_account(&f.admin).set_emergency_admin(&f.admin, &f.bob);
+    f.vault.with_source_account(&f.admin).set_reward_rate_bps(&500);
+    assert_eq!(f.vault.get_reward_rate_bps(), 500);
+}
+
+#[test]
 fn test_unpause_requires_admin_auth() {
     let f = VaultFixture::new();
     f.vault.unpause();
@@ -856,7 +895,7 @@ fn test_pool_created_by_before_init_fails() {
     assert_eq!(result, Err(Ok(VaultError::NotInitialized)));
 }
 
-// ── lock-up period and early-unstake penalty tests ───────────────────────────
+// â”€â”€ lock-up period and early-unstake penalty tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_lock_period_requires_admin_auth() {
@@ -897,7 +936,7 @@ fn test_lock_config_query() {
     assert_eq!(penalty_bps, 1500);
 }
 
-// ── unstake fee (separate from withdrawal fee) ────────────────────────────────
+// â”€â”€ unstake fee (separate from withdrawal fee) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_and_get_unstake_fee_bps() {
@@ -980,7 +1019,7 @@ fn test_unstake_fee_applies_after_lock_penalty() {
     assert_eq!(f.vault.get_reward_pool_balance(), 45_000);
 }
 
-// ── dynamic unstake fee (Issue #213) ─────────────────────────────────────────
+// â”€â”€ dynamic unstake fee (Issue #213) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_dynamic_fee_config_requires_admin_auth() {
@@ -1081,7 +1120,7 @@ fn test_unstake_uses_dynamic_fee_instead_of_static_fee() {
     assert_eq!(f.vault.get_reward_pool_balance(), 2_000);
 }
 
-// ── governance vote weight snapshots (Issue #31) ─────────────────────────────
+// â”€â”€ governance vote weight snapshots (Issue #31) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_vote_weight_tracks_stake_history() {
@@ -1120,7 +1159,7 @@ fn test_vote_weight_history_is_capped_at_100_snapshots() {
     assert_eq!(f.vault.vote_weight_at(&f.alice, &105), 105);
 }
 
-// ── minimum stake (Issue #35) ─────────────────────────────────────────────────
+// â”€â”€ minimum stake (Issue #35) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_stake_exactly_at_minimum_succeeds() {
@@ -1176,7 +1215,7 @@ fn test_admin_can_update_minimum_stake() {
     assert_eq!(f.vault.get_min_stake(), 50_000);
 }
 
-// ── reward boost schedule (Issue #36) ─────────────────────────────────────────
+// â”€â”€ reward boost schedule (Issue #36) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_no_boost_schedule_means_base_multiplier_only() {
@@ -1254,7 +1293,7 @@ fn test_reward_checkpoint_on_top_up_avoids_overpaying() {
     assert_eq!(f.vault.calc_pending_reward(&f.alice), 300);
 }
 
-// ── Issue #39: rescue_token ───────────────────────────────────────────────────
+// â”€â”€ Issue #39: rescue_token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_rescue_third_token_succeeds() {
@@ -1346,7 +1385,7 @@ fn test_rescue_token_emits_token_rescued_event() {
     assert_eq!(rescue_events.len(), 1);
 }
 
-// ── Issue #40: NFT receipt on stake ──────────────────────────────────────────
+// â”€â”€ Issue #40: NFT receipt on stake â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn setup_nft<'a>(f: &'a VaultFixture<'a>) -> (Address, StakeReceiptNFTClient<'a>) {
     let nft_id = f.env.register_contract(None, StakeReceiptNFT);
@@ -1385,10 +1424,10 @@ fn test_partial_unstake_keeps_nft() {
     let (_nft_id, nft) = setup_nft(&f);
 
     f.vault.stake(&f.alice, &100_000);
-    f.vault.unstake(&f.alice, &50_000); // partial — receipt should remain
+    f.vault.unstake(&f.alice, &50_000); // partial â€” receipt should remain
     assert!(nft.has_receipt(&f.alice));
 
-    f.vault.unstake(&f.alice, &50_000); // full — receipt should be burned
+    f.vault.unstake(&f.alice, &50_000); // full â€” receipt should be burned
     assert!(!nft.has_receipt(&f.alice));
 }
 
@@ -1408,7 +1447,7 @@ fn test_nft_transfer_always_reverts() {
     assert!(nft.has_receipt(&f.alice));
 }
 
-// ── Issue #41: restake grace window ──────────────────────────────────────────
+// â”€â”€ Issue #41: restake grace window â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_restake_minimal_no_lock() {
@@ -1417,7 +1456,7 @@ fn test_restake_minimal_no_lock() {
     f.vault.set_restake_window(&100);
     f.vault.stake(&f.alice, &100_000);
     f.vault.unstake(&f.alice, &100_000);
-    // At ledger 0, last_unstake = 0, current = 0, diff = 0 ≤ 100 → Restaked = true
+    // At ledger 0, last_unstake = 0, current = 0, diff = 0 â‰¤ 100 â†’ Restaked = true
     f.vault.stake(&f.alice, &100_000);
     f.vault.unstake(&f.alice, &100_000);
 }
@@ -1429,7 +1468,7 @@ fn test_restake_with_lock_no_penalty_after_expiry() {
     f.vault.set_early_exit_penalty_bps(&1000);
     // NOTE: no set_restake_window here
     f.vault.stake(&f.alice, &500_000);
-    // Unstake AFTER lock period → no penalty
+    // Unstake AFTER lock period â†’ no penalty
     set_ledger(&f.env, 100);
     let first_return = f.vault.unstake(&f.alice, &500_000);
     assert_eq!(first_return, 500_000);
@@ -1524,7 +1563,7 @@ fn test_restake_within_window_is_penalty_free() {
     assert_eq!(first_return, 500_000, "No penalty after lock expires");
     // LastUnstakeLedger = 100; vault is now empty.
 
-    // Alice re-stakes 50 ledgers later — within the 200-ledger window → Restaked = true.
+    // Alice re-stakes 50 ledgers later â€” within the 200-ledger window â†’ Restaked = true.
     set_ledger(&f.env, 150);
     f.vault.stake(&f.alice, &500_000);
 
@@ -1553,11 +1592,11 @@ fn test_restake_outside_window_incurs_normal_penalty() {
     set_ledger(&f.env, 100);
     f.vault.unstake(&f.alice, &500_000);
 
-    // Re-stake 50 ledgers later — OUTSIDE the 10-ledger window → Restaked NOT set.
+    // Re-stake 50 ledgers later â€” OUTSIDE the 10-ledger window â†’ Restaked NOT set.
     set_ledger(&f.env, 150);
     f.vault.stake(&f.alice, &500_000);
 
-    // Early exit inside the new lock period — normal penalty applies.
+    // Early exit inside the new lock period â€” normal penalty applies.
     set_ledger(&f.env, 200);
     let returned = f.vault.unstake(&f.alice, &500_000);
     let penalty = 500_000_i128 * 1000 / 10_000;
@@ -1583,11 +1622,11 @@ fn test_restake_window_zero_disables_feature() {
     set_ledger(&f.env, 100);
     f.vault.unstake(&f.alice, &500_000);
 
-    // Re-stake 1 ledger later — window = 0 means Restaked is never set.
+    // Re-stake 1 ledger later â€” window = 0 means Restaked is never set.
     set_ledger(&f.env, 101);
     f.vault.stake(&f.alice, &500_000);
 
-    // Early exit inside lock period — penalty must apply since window = 0.
+    // Early exit inside lock period â€” penalty must apply since window = 0.
     set_ledger(&f.env, 150);
     let returned = f.vault.unstake(&f.alice, &500_000);
     let penalty = 500_000_i128 * 1000 / 10_000;
@@ -1598,7 +1637,7 @@ fn test_restake_window_zero_disables_feature() {
     );
 }
 
-// ── Issue #42: admin action audit log ────────────────────────────────────────
+// â”€â”€ Issue #42: admin action audit log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_admin_action_count_increments() {
@@ -1704,7 +1743,7 @@ fn test_admin_action_count_increments_across_all_admin_fns() {
     assert_eq!(f.vault.get_admin_action_count(), expected);
 }
 
-// ── reward token decimal normalization ────────────────────────────────────────
+// â”€â”€ reward token decimal normalization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_initialize_defaults_decimals_to_seven() {
@@ -1764,7 +1803,7 @@ fn test_pending_reward_scaled_up_when_reward_decimals_larger() {
     assert_eq!(f.vault.calc_pending_reward(&f.alice), 10_000);
 }
 
-// ── pool cap (TVL limit) ──────────────────────────────────────────────────────
+// â”€â”€ pool cap (TVL limit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_stake_within_cap_succeeds() {
@@ -1991,7 +2030,7 @@ fn test_set_pool_cap_negative_fails() {
     assert_eq!(result, Err(Ok(VaultError::ZeroAmount)));
 }
 
-// ── unstake_all (#79) ─────────────────────────────────────────────────────────
+// â”€â”€ unstake_all (#79) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_unstake_all_fully_exits_position() {
@@ -2029,7 +2068,7 @@ fn test_unstake_all_no_position_reverts() {
     assert_eq!(result, Err(Ok(VaultError::PositionNotFound)));
 }
 
-// ── reward_token_balance (#80) ────────────────────────────────────────────────
+// â”€â”€ reward_token_balance (#80) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_reward_token_balance_reflects_funded_pool() {
@@ -2057,7 +2096,7 @@ fn test_reward_token_balance_includes_staked_principal() {
     assert!(balance >= stake_amount);
 }
 
-// ── position_age_ledgers (#81) ────────────────────────────────────────────────
+// â”€â”€ position_age_ledgers (#81) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_position_age_zero_immediately_after_stake() {
@@ -2110,7 +2149,7 @@ fn test_time_since_last_claim_equals_ledgers_advanced() {
     assert_eq!(t, advance);
 }
 
-// ── rate_changed event (#82) ──────────────────────────────────────────────────
+// â”€â”€ rate_changed event (#82) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_reward_rate_emits_rate_changed_event() {
@@ -2122,7 +2161,7 @@ fn test_set_reward_rate_emits_rate_changed_event() {
     f.vault.set_reward_rate_bps(&1000_u32);
 
     let all_events = f.env.events().all();
-    // Use the last rate_chg event — that is the one from the second call.
+    // Use the last rate_chg event â€” that is the one from the second call.
     let rate_event = all_events
         .iter()
         .filter(|(_, topics, _)| topic_matches(&f.env, topics, "rate_chg"))
@@ -2159,7 +2198,7 @@ fn test_rate_changed_event_emitted_even_when_rate_unchanged() {
     );
 }
 
-// ── total_rewards_paid (Issue #71) ──────────────────────────────────────────
+// â”€â”€ total_rewards_paid (Issue #71) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_total_rewards_paid_starts_at_zero() {
@@ -2220,7 +2259,7 @@ fn test_total_rewards_paid_increments_after_unstake_then_claim() {
     assert_eq!(f.vault.total_rewards_paid(), claim_amount);
 }
 
-// ── get_stake_token (Issue #64) ─────────────────────────────────────────────
+// â”€â”€ get_stake_token (Issue #64) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_get_stake_token_returns_initialized_token() {
@@ -2248,7 +2287,7 @@ fn test_get_reward_token_returns_set_token() {
     assert_eq!(f.vault.get_reward_token(), reward_token_addr);
 }
 
-// ── simulation functions (Issue #54) ────────────────────────────────────────
+// â”€â”€ simulation functions (Issue #54) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_simulate_stake_zero_rate() {
@@ -2334,7 +2373,7 @@ fn test_simulate_boost_impact_with_schedule() {
     );
 }
 
-// ── get_pool_config (#76) ─────────────────────────────────────────────────────
+// â”€â”€ get_pool_config (#76) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_get_pool_config_returns_all_fields() {
@@ -2366,7 +2405,7 @@ fn test_get_pool_config_reflects_paused_state() {
     assert!(!config2.paused);
 }
 
-// ── stake_and_claim (#77) ─────────────────────────────────────────────────────
+// â”€â”€ stake_and_claim (#77) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn setup_reward_pool(f: &VaultFixture) {
     f.token_admin.mint(&f.admin, &5_000_000);
@@ -2390,7 +2429,7 @@ fn test_stake_and_claim_with_pending_reward_settles_correctly() {
     // Alice stakes more and claims simultaneously
     let claimed = f.vault.stake_and_claim(&f.alice, &500_000);
 
-    // Reward should be positive (10% APR × 1 year ≈ 100_000)
+    // Reward should be positive (10% APR Ã— 1 year â‰ˆ 100_000)
     assert!(claimed > 0, "claimed reward must be positive");
     // Alice's token balance should have decreased by 500_000 (new stake) minus the claimed reward
     let balance_after = f.token.balance(&f.alice);
@@ -2402,7 +2441,7 @@ fn test_stake_and_claim_no_pending_reward_still_stakes() {
     let f = VaultFixture::new();
     setup_reward_pool(&f);
 
-    // Alice stakes at ledger 0 — no time elapses so no reward yet
+    // Alice stakes at ledger 0 â€” no time elapses so no reward yet
     f.vault.stake(&f.alice, &500_000);
 
     let claimed = f.vault.stake_and_claim(&f.alice, &200_000);
@@ -2467,7 +2506,7 @@ fn test_stake_and_claim_new_stake_amount_added_correctly() {
     );
 }
 
-// ── set_claim_cap / get_claim_window (#78) ────────────────────────────────────
+// â”€â”€ set_claim_cap / get_claim_window (#78) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn setup_with_cap(cap: i128, window: u32) -> VaultFixture<'static> {
     let f = VaultFixture::new();
@@ -2540,7 +2579,7 @@ fn test_cap_zero_disables_limit() {
     );
 }
 
-// ── APR and TWAP tests ────────────────────────────────────────────────────────
+// â”€â”€ APR and TWAP tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_current_apr_bps_returns_current_rate() {
@@ -2585,7 +2624,7 @@ fn test_twap_two_rates_calculated_correctly() {
     set_ledger(&f.env, 300);
 
     // Window=200 covering ledgers 100-300:
-    // 100 ledgers @2000 bps + 100 ledgers @3000 bps → TWAP = 2500
+    // 100 ledgers @2000 bps + 100 ledgers @3000 bps â†’ TWAP = 2500
     let twap = f.vault.twap_apr_bps(&200);
     assert_eq!(twap, 2500);
 }
@@ -2601,7 +2640,7 @@ fn test_twap_with_window_starting_before_first_change() {
     set_ledger(&f.env, 200);
 
     // Window=150 covering ledgers 50-200:
-    // 50 ledgers @1000 bps + 100 ledgers @2000 bps → TWAP = (50*1000+100*2000)/150 = 1666
+    // 50 ledgers @1000 bps + 100 ledgers @2000 bps â†’ TWAP = (50*1000+100*2000)/150 = 1666
     let twap = f.vault.twap_apr_bps(&150);
     assert_eq!(twap, 1666);
 }
@@ -2660,7 +2699,7 @@ fn test_twap_zero_window_returns_current_rate() {
     assert_eq!(twap, 1500);
 }
 
-// ── Issue #98: can_unstake pre-flight check ─────────────────────────────────
+// â”€â”€ Issue #98: can_unstake pre-flight check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_can_unstake_ok_when_valid() {
@@ -2739,7 +2778,7 @@ fn test_can_unstake_not_locked_after_period() {
     );
 }
 
-// ── Issue #97: set_pool_description ─────────────────────────────────────────
+// â”€â”€ Issue #97: set_pool_description â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_and_get_pool_description() {
@@ -2794,7 +2833,7 @@ fn test_set_pool_description_emits_event() {
     assert_eq!(desc_events.len(), 1);
 }
 
-// ── Issue #96: percentage_of_pool ───────────────────────────────────────────
+// â”€â”€ Issue #96: percentage_of_pool â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_percentage_of_pool_sole_staker() {
@@ -2834,7 +2873,7 @@ fn test_percentage_of_pool_unequal_stakers() {
     assert_eq!(f.vault.percentage_of_pool(&f.bob), 2_500);
 }
 
-// ── Issue #99: staking streak tracker ───────────────────────────────────────
+// â”€â”€ Issue #99: staking streak tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_streak_increments_on_consecutive_waves() {
@@ -2927,7 +2966,7 @@ fn test_streak_too_many_active_users_rejected() {
     assert_eq!(result, Err(Ok(VaultError::TooManyActiveUsers)));
 }
 
-// ── Issue #214: staker reputation score ──────────────────────────────────────
+// â”€â”€ Issue #214: staker reputation score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_reputation_score_brand_new_staker_is_zero() {
@@ -3077,7 +3116,7 @@ fn test_reputation_score_total_is_sum_of_components() {
     );
 }
 
-// ── Issue #70: zero address validation in initialize ─────────────────────────
+// â”€â”€ Issue #70: zero address validation in initialize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_initialize_zero_admin_rejected() {
@@ -3115,7 +3154,7 @@ fn test_initialize_zero_reward_token_rejected() {
     assert_eq!(result, Err(Ok(VaultError::InvalidAddress)));
 }
 
-// ── Issue #69: last_updated_ledger tracking ───────────────────────────────────
+// â”€â”€ Issue #69: last_updated_ledger tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_last_updated_ledger_after_stake() {
@@ -3176,7 +3215,7 @@ fn test_last_updated_ledger_defaults_to_zero() {
     assert_eq!(f.vault.get_last_updated_ledger(), 0);
 }
 
-// ── Issue #72: reward_rate_bps validation in initialize ───────────────────────
+// â”€â”€ Issue #72: reward_rate_bps validation in initialize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_initialize_rate_above_max_rejected() {
@@ -3223,7 +3262,7 @@ fn test_initialize_stores_reward_rate() {
     assert_eq!(vault.get_reward_rate_bps(), 1_000);
 }
 
-// ── get_staker_rank (Add-get_staker_rank) ─────────────────────────────────────
+// â”€â”€ get_staker_rank (Add-get_staker_rank) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Sole staker is rank 1.
 ///
@@ -3253,7 +3292,7 @@ fn test_get_staker_rank_largest_of_three_is_rank_1() {
     f.vault.stake(&f.bob, &100_000);
     f.vault.stake(&charlie, &500_000);
 
-    // Charlie deposited the most — rank 1.
+    // Charlie deposited the most â€” rank 1.
     assert_eq!(
         f.vault.get_staker_rank(&charlie),
         Some(1),
@@ -3280,11 +3319,11 @@ fn test_get_staker_rank_largest_of_three_is_rank_1() {
 #[test]
 fn test_get_staker_rank_no_position_returns_none() {
     let f = VaultFixture::new();
-    // alice has never staked — should return None.
+    // alice has never staked â€” should return None.
     let rank = f.vault.get_staker_rank(&f.alice);
     assert_eq!(rank, None, "address with no position should return None");
 
-    // Stake and then fully unstake — should also return None afterwards.
+    // Stake and then fully unstake â€” should also return None afterwards.
     f.vault.stake(&f.alice, &200_000);
     assert_eq!(f.vault.get_staker_rank(&f.alice), Some(1));
     let alice_shares = f.vault.shares_of(&f.alice);
@@ -3325,7 +3364,7 @@ fn test_get_staker_rank_ties_broken_deterministically() {
         "tied stakers must occupy ranks 1 and 2"
     );
 
-    // The deterministic rule: smaller address string → better rank.
+    // The deterministic rule: smaller address string â†’ better rank.
     let alice_str = f.alice.to_string();
     let bob_str = f.bob.to_string();
     if alice_str < bob_str {
@@ -3343,7 +3382,7 @@ fn test_get_staker_rank_ties_broken_deterministically() {
     }
 }
 
-// ── Issue #113: auto_restake ──────────────────────────────────────────────────
+// â”€â”€ Issue #113: auto_restake â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// When auto_restake is enabled and the user stakes again, any pending reward
 /// should be silently added to the position instead of transferred out.
@@ -3368,7 +3407,7 @@ fn test_auto_restake_compounds_reward_into_position() {
     let pending = f.vault.calc_pending_reward(&f.alice);
     assert!(pending > 0, "rewards should have accrued");
 
-    // Stake more — rewards should compound into position
+    // Stake more â€” rewards should compound into position
     f.vault.stake(&f.alice, &1_000_000);
     let new_pos = f.vault.position_of(&f.alice).unwrap().amount;
 
@@ -3401,7 +3440,7 @@ fn test_auto_restake_off_transfers_reward_normally() {
     let pending = f.vault.calc_pending_reward(&f.alice);
     assert!(pending > 0);
 
-    // Stake more — rewards should remain accrued, not transferred or compounded
+    // Stake more â€” rewards should remain accrued, not transferred or compounded
     f.vault.stake(&f.alice, &1_000_000);
 
     // Position should be: initial + new_stake (no reward compounding)
@@ -3479,7 +3518,7 @@ fn test_auto_restake_reflected_in_total_staked() {
     );
 }
 
-// ── Issue #132: position_value_in_reward_token ────────────────────────────────
+// â”€â”€ Issue #132: position_value_in_reward_token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_position_value_in_reward_token_1to1_rate() {
@@ -3488,7 +3527,7 @@ fn test_position_value_in_reward_token_1to1_rate() {
     f.token_admin.mint(&f.alice, &1_000_000);
     f.vault.stake(&f.alice, &1_000_000);
 
-    // 10_000 bps == 1:1 rate — value in reward token equals staked amount
+    // 10_000 bps == 1:1 rate â€” value in reward token equals staked amount
     let val = f.vault.position_value_in_reward_token(&f.alice, &10_000);
     let pos = f.vault.position_of(&f.alice).unwrap();
     assert_eq!(val, pos.amount);
@@ -3500,7 +3539,7 @@ fn test_position_value_in_reward_token_half_rate() {
     f.token_admin.mint(&f.alice, &1_000_000);
     f.vault.stake(&f.alice, &1_000_000);
 
-    // 5_000 bps == 0.5:1 rate — value is half the staked amount
+    // 5_000 bps == 0.5:1 rate â€” value is half the staked amount
     let val = f.vault.position_value_in_reward_token(&f.alice, &5_000);
     let pos = f.vault.position_of(&f.alice).unwrap();
     assert_eq!(val, pos.amount / 2);
@@ -3523,7 +3562,7 @@ fn test_position_value_in_reward_token_no_position_returns_zero() {
     assert_eq!(val, 0);
 }
 
-// ── Issue #133: daily_reward_estimate ────────────────────────────────────────
+// â”€â”€ Issue #133: daily_reward_estimate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_daily_reward_estimate_no_position_returns_zero() {
@@ -3551,11 +3590,11 @@ fn test_daily_reward_estimate_known_rate() {
     // Sanity: daily reward must be positive and less than annual reward
     assert!(daily > 0);
     // Annual at 500 bps: 10_000_000 * 500 / 10_000 = 500_000
-    // Daily should be roughly 500_000 / 365 ≈ 1369
+    // Daily should be roughly 500_000 / 365 â‰ˆ 1369
     assert!(daily < 500_000);
 }
 
-// ── Issue #134: transfer_position_with_rewards ───────────────────────────────
+// â”€â”€ Issue #134: transfer_position_with_rewards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_transfer_position_with_rewards_recipient_inherits_pending_reward() {
@@ -3572,7 +3611,7 @@ fn test_transfer_position_with_rewards_recipient_inherits_pending_reward() {
     let pending_before = f.vault.calc_pending_reward(&f.alice);
     assert!(pending_before > 0, "alice must have pending rewards");
 
-    // Transfer with rewards — bob inherits alice's full position including reward debt
+    // Transfer with rewards â€” bob inherits alice's full position including reward debt
     f.vault.transfer_position_with_rewards(&f.alice, &f.bob);
 
     // alice should have no position
@@ -3600,7 +3639,7 @@ fn test_transfer_position_with_rewards_no_settlement_to_sender() {
 
     f.vault.transfer_position_with_rewards(&f.alice, &f.bob);
 
-    // alice's token balance must not increase — no reward was settled to sender
+    // alice's token balance must not increase â€” no reward was settled to sender
     assert_eq!(f.token.balance(&f.alice), alice_balance_before);
 }
 
@@ -3624,7 +3663,7 @@ fn test_transfer_position_with_rewards_requires_auth() {
     assert!(res.is_err());
 }
 
-// ── Issue #135: staking_efficiency_score ────────────────────────────────────
+// â”€â”€ Issue #135: staking_efficiency_score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_staking_efficiency_score_no_position() {
@@ -3662,7 +3701,7 @@ fn test_staking_efficiency_score_unclaimed_has_low_efficiency() {
 
     let eff = f.vault.staking_efficiency_score(&f.alice);
     assert_eq!(eff.total_claimed, 0, "alice has not claimed anything");
-    assert_eq!(eff.efficiency_bps, 0, "0 claimed → 0 efficiency");
+    assert_eq!(eff.efficiency_bps, 0, "0 claimed â†’ 0 efficiency");
 }
 
 #[test]
@@ -3709,7 +3748,7 @@ fn test_staking_efficiency_score_never_exceeds_10000_bps() {
     );
 }
 
-// ── Issue #114: get_changelog ────────────────────────────────────────────────
+// â”€â”€ Issue #114: get_changelog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_changelog_empty_initially() {
@@ -3782,7 +3821,7 @@ fn test_changelog_drops_oldest_when_full() {
     );
 }
 
-// ── Issue #115: staker_count_at_rate ─────────────────────────────────────────
+// â”€â”€ Issue #115: staker_count_at_rate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_graceful_shutdown_blocks_new_stakes() {
@@ -3843,7 +3882,7 @@ fn test_graceful_shutdown_non_admin_rejected() {
     assert!(!f.vault.is_shutting_down());
 }
 
-// ── staker_joined_at tests ────────────────────────────────────────────────────
+// â”€â”€ staker_joined_at tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_staker_joined_at_records_first_stake_ledger() {
@@ -3909,7 +3948,7 @@ fn test_get_next_epoch_start_and_until() {
     assert_eq!(until_1200, 0);
 }
 
-// ── emergency contact ────────────────────────────────────────────────────────
+// â”€â”€ emergency contact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_get_emergency_contact_returns_none_initially() {
@@ -3983,7 +4022,7 @@ fn test_set_emergency_contact_non_admin_rejected() {
     assert_eq!(result, Err(Ok(VaultError::Unauthorized)));
 }
 
-// ── Issue #219: pause reason code ────────────────────────────────────────────
+// â”€â”€ Issue #219: pause reason code â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_pause_stores_reason_and_message() {
@@ -4067,7 +4106,7 @@ fn test_pause_all_reason_variants() {
     );
 }
 
-// ── Issue #217: tax reporting helper ─────────────────────────────────────────
+// â”€â”€ Issue #217: tax reporting helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_get_tax_report_empty_range_returns_zeros() {
@@ -4121,7 +4160,7 @@ fn test_claim_history_cap_enforced() {
     f.vault.fund_reward_pool(&f.admin, &(annual_stake * 200));
     f.vault.stake(&f.alice, &annual_stake);
 
-    // Make 105 claims (max is 100) — oldest should be dropped
+    // Make 105 claims (max is 100) â€” oldest should be dropped
     for i in 1..=105 {
         set_ledger(&f.env, i * 100);
         f.vault.claim(&f.alice);
@@ -4131,7 +4170,7 @@ fn test_claim_history_cap_enforced() {
     assert_eq!(report.claim_count, 100);
 }
 
-// ── Issue #220: rounding policy ──────────────────────────────────────────────
+// â”€â”€ Issue #220: rounding policy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_default_rounding_policy_is_floor() {
@@ -4194,7 +4233,7 @@ fn test_apply_rounding_zero_denominator_returns_zero() {
     assert_eq!(result, 0);
 }
 
-// ── Issue #218: pool-to-pool migration ───────────────────────────────────────
+// â”€â”€ Issue #218: pool-to-pool migration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_and_get_migration_target() {
@@ -4222,7 +4261,7 @@ fn test_migration_target_immutable_after_set() {
     assert_eq!(f.vault.get_migration_target(), Some(target1));
 }
 
-// ── Issue #215: yield farming hook ────────────────────────────────────────────
+// â”€â”€ Issue #215: yield farming hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn setup_yield_protocol(f: &VaultFixture) -> Address {
     let protocol_id = f.env.register_contract(None, MockYieldProtocol);
@@ -4321,7 +4360,7 @@ fn test_withdraw_from_yield_exceeds_deployed_rejected() {
     assert_eq!(result, Err(Ok(VaultError::InsufficientRewardPool)));
 }
 
-// ── Issue #216: governance voting ────────────────────────────────────────────
+// â”€â”€ Issue #216: governance voting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_create_proposal_requires_active_position() {
@@ -4494,12 +4533,12 @@ fn test_get_proposal_returns_none_for_unknown_id() {
     assert_eq!(f.vault.get_proposal(&999), None);
 }
 
-// ── Issue #206: rollback_last_rate_change ───────────────────────────────────
+// â”€â”€ Issue #206: rollback_last_rate_change â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // NOTE: this whole crate currently fails to build on `main` due to several
 // pre-existing, unrelated issues (functions/types referenced by
 // reward_multiplier_preview / dynamic fee config / reputation score /
-// user-claim-count features that don't exist anywhere in the codebase —
+// user-claim-count features that don't exist anywhere in the codebase â€”
 // confirmed via `git stash` to be identical with or without this PR's
 // changes). These tests are written and reviewed carefully but could not
 // actually be run in this session as a result.
@@ -4562,7 +4601,7 @@ fn test_rollback_can_be_followed_by_another_rate_change_and_rollback() {
     assert_eq!(restored, 500);
 }
 
-// ── Issue #207: cross-chain bridge relayer hook ─────────────────────────────
+// â”€â”€ Issue #207: cross-chain bridge relayer hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_bridge_event_emitted_on_stake_when_enabled() {
@@ -4583,7 +4622,7 @@ fn test_bridge_event_emitted_on_stake_when_enabled() {
 #[test]
 fn test_bridge_event_not_emitted_when_disabled() {
     let f = VaultFixture::new();
-    // bridge_enabled defaults to false — do not enable it.
+    // bridge_enabled defaults to false â€” do not enable it.
     f.vault.stake(&f.alice, &500_000);
 
     let events = f.env.events().all();
@@ -4618,7 +4657,7 @@ fn test_bridge_enable_disable_toggle() {
     assert!(!f.vault.is_bridge_enabled());
 }
 
-// ── Issue #209: position_split ──────────────────────────────────────────────
+// â”€â”€ Issue #209: position_split â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_position_split_creates_two_correct_positions() {
@@ -4670,7 +4709,7 @@ fn test_position_split_preserves_lock_status_on_both_positions() {
     f.vault.position_split(&f.alice, &300_000);
 
     // The primary position is still locked: unstaking more than what's left
-    // unlocked should apply the early-exit penalty path, not error — but at
+    // unlocked should apply the early-exit penalty path, not error â€” but at
     // minimum, both positions' staked_at_ledger must match the original.
     let split_positions = f.vault.get_split_positions(&f.alice);
     let split = split_positions.get(0).unwrap();
@@ -4699,7 +4738,7 @@ fn test_position_split_rejects_invalid_amounts() {
     assert_eq!(result, Err(Ok(VaultExtError::InvalidSplitAmount)));
 }
 
-// ── Issue #205: swap_and_stake ───────────────────────────────────────────────
+// â”€â”€ Issue #205: swap_and_stake â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_swap_and_stake_success() {
@@ -4764,7 +4803,7 @@ fn test_swap_and_stake_zero_min_stake_amount_disables_slippage_check() {
 
     let router_id = f.env.register_contract(None, MockDexRouter);
     let router_client = MockDexRouterClient::new(&f.env, &router_id);
-    router_client.set_rate_divisor(&10); // output is 1/10th the input — would fail most minimums
+    router_client.set_rate_divisor(&10); // output is 1/10th the input â€” would fail most minimums
     f.token_admin.mint(&router_id, &1_000_000);
 
     f.vault.set_dex_router(&router_id);
@@ -4776,17 +4815,17 @@ fn test_swap_and_stake_zero_min_stake_amount_disables_slippage_check() {
     assert_eq!(shares, 100_000);
 }
 
-// ── Issues #163, #195, #196, #197 ────────────────────────────────────────────
+// â”€â”€ Issues #163, #195, #196, #197 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // NOTE: this whole crate currently fails to build on `main` due to several
 // pre-existing, unrelated issues (functions/types referenced by
 // reward_multiplier_preview / dynamic fee config / reputation score /
-// user-claim-count features that don't exist anywhere in the codebase —
+// user-claim-count features that don't exist anywhere in the codebase â€”
 // confirmed via `git stash` to be identical with or without this PR's
 // changes). These tests are written and reviewed carefully but could not
 // actually be run in this session as a result.
 
-// ── Issue #163: lifetime total-ever-staked counter ──────────────────────────
+// â”€â”€ Issue #163: lifetime total-ever-staked counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_total_ever_staked_starts_at_zero() {
@@ -4818,7 +4857,7 @@ fn test_total_ever_staked_accumulates_across_multiple_stakes() {
     assert_eq!(f.vault.get_total_ever_staked(), 900_000);
 }
 
-// ── Issue #197: fee splitting ────────────────────────────────────────────────
+// â”€â”€ Issue #197: fee splitting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_two_recipients_split_correctly() {
@@ -4849,7 +4888,7 @@ fn test_two_recipients_split_correctly() {
     let carol_after = f.token.balance(&carol);
     assert!(bob_after > bob_before);
     assert!(carol_after > carol_before);
-    // 60/40 split — bob (first recipient, absorbs dust) gets >= 1.5x carol's share.
+    // 60/40 split â€” bob (first recipient, absorbs dust) gets >= 1.5x carol's share.
     assert!((bob_after - bob_before) > (carol_after - carol_before));
 }
 
@@ -4898,7 +4937,7 @@ fn test_single_recipient_gets_100_percent() {
     assert!(f.token.balance(&f.bob) > bob_before);
 }
 
-// ── Issue #195: timelocked admin actions ────────────────────────────────────
+// â”€â”€ Issue #195: timelocked admin actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn rate_params(env: &Env, rate_bps: u32) -> Bytes {
     Bytes::from_array(env, &rate_bps.to_be_bytes())
@@ -4959,7 +4998,7 @@ fn test_zero_delay_allows_immediate_execution() {
     assert_eq!(f.vault.get_reward_rate_bps(), 900);
 }
 
-// ── Issue #196: multi-sig admin ──────────────────────────────────────────────
+// â”€â”€ Issue #196: multi-sig admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_proposal_executes_at_threshold() {
@@ -4995,7 +5034,7 @@ fn test_proposal_blocked_below_threshold() {
         &AdminAction::SetRewardRate,
         &rate_params(&f.env, 900),
     );
-    // Only alice's implicit approval (from proposing) — threshold is 2.
+    // Only alice's implicit approval (from proposing) â€” threshold is 2.
     let result = f.vault.try_execute_proposal(&id);
     assert_eq!(result, Err(Ok(VaultExtError::ProposalNotReady)));
 }
@@ -5036,7 +5075,7 @@ fn test_non_admin_cannot_propose() {
     assert_eq!(result, Err(Ok(VaultExtError::NotAMultisigAdmin)));
 }
 
-// ── Issue #231: Halving Schedule ──────────────────────────────────────────────
+// â”€â”€ Issue #231: Halving Schedule â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_halving_schedule_sets_config() {
@@ -5178,7 +5217,7 @@ fn test_halving_with_boost_schedule() {
     );
 }
 
-// ── Issue #222: Staking Certificate ───────────────────────────────────────────
+// â”€â”€ Issue #222: Staking Certificate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_min_cert_amount() {
@@ -5273,7 +5312,7 @@ fn test_invalidate_certificate_fails_if_no_cert() {
     assert_eq!(result, Err(Ok(VaultError::ZeroAmount)));
 }
 
-// ── Issue #233: Minimum Pool Size to Activate ─────────────────────────────────
+// â”€â”€ Issue #233: Minimum Pool Size to Activate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_activation_threshold() {
@@ -5336,7 +5375,7 @@ fn test_pool_reactivates_on_second_stake() {
     assert!(f.vault.pool_is_active());
 }
 
-// ── Issue #232: Position Expiry ──────────────────────────────────────────────
+// â”€â”€ Issue #232: Position Expiry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_position_not_expired_without_duration_set() {
@@ -5405,7 +5444,7 @@ fn test_position_not_expired_for_new_staker() {
     assert!(!f.vault.position_expired(&f.alice));
 }
 
-// ── Issue #234: Minimum Pool Size to Activate Rewards ────────────────────────
+// â”€â”€ Issue #234: Minimum Pool Size to Activate Rewards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Pool TVL. `total_staked()` reports total *shares*; the deposited-token total
 /// these tests care about is the second element of `vault_state()`.
@@ -5486,7 +5525,7 @@ fn test_rewards_accrue_once_min_pool_size_reached() {
     assert!(f.vault.rewards_are_active());
     assert_eq!(f.vault.rewards_activated_at(), Some(1_000_000));
 
-    // Alice earns for the year *after* activation only — not the million
+    // Alice earns for the year *after* activation only â€” not the million
     // ledgers she spent waiting below the threshold.
     set_ledger(&f.env, 1_000_000 + STELLAR_LEDGERS_PER_YEAR);
     assert_eq!(
@@ -5596,7 +5635,7 @@ fn test_rewards_activated_event_emitted_once() {
     assert_eq!(activated.len(), 1);
 }
 
-// ── Issue #235: Reward Smoothing ─────────────────────────────────────────────
+// â”€â”€ Issue #235: Reward Smoothing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_smoothing_disabled_by_default() {
@@ -5842,7 +5881,7 @@ fn test_smoothing_events_emitted() {
     assert_eq!(released.len(), 1);
 }
 
-// ── Issue #236: Referral Tree Visualization ──────────────────────────────────
+// â”€â”€ Issue #236: Referral Tree Visualization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Generate a funded address so referral chains can be more than 3 deep.
 fn funded_staker(f: &VaultFixture) -> Address {
@@ -6017,7 +6056,7 @@ fn test_referral_tree_records_referee_only_once_on_restake() {
     assert_eq!(f.vault.referral_tree_data(&f.bob, &None).len(), 2);
 }
 
-// ── Issue #237: Capacity Auction ─────────────────────────────────────────────
+// â”€â”€ Issue #237: Capacity Auction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_no_auction_by_default() {
@@ -6407,7 +6446,7 @@ fn test_arming_gate_late_keeps_checkpointed_rewards() {
     assert_eq!(f.vault.claim(&f.alice), checkpointed);
 }
 
-// ── Issue #239: stake-weighted lottery ────────────────────────────────────────
+// â”€â”€ Issue #239: stake-weighted lottery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_lottery_single_staker_wins_solo() {
@@ -6482,7 +6521,7 @@ fn test_lottery_prize_transferred_to_winner() {
     );
 }
 
-// ── Issue #238: loyalty milestone badges ──────────────────────────────────────
+// â”€â”€ Issue #238: loyalty milestone badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_duration_milestone_triggered_after_correct_ledgers() {
@@ -6569,7 +6608,7 @@ fn test_add_milestone_max_cap_enforced() {
     assert_eq!(result, Err(Ok(VaultExtError::TooManyMilestones)));
 }
 
-// ── Achievement leaderboard tests ─────────────────────────────────────────────
+// â”€â”€ Achievement leaderboard tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_achievement_leaderboard_more_milestones_ranks_higher() {
@@ -6762,7 +6801,7 @@ fn test_get_user_milestone_rank_none_for_no_milestones() {
     assert!(rank.is_none());
 }
 
-// ── Issue #240: oracle-triggered lock-up release ──────────────────────────────
+// â”€â”€ Issue #240: oracle-triggered lock-up release â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_check_and_release_condition_met_waives_lockup() {
@@ -6842,7 +6881,7 @@ fn test_check_and_release_no_oracle_set_reverts() {
     assert_eq!(result, Err(Ok(VaultExtError::NoOracleConfigured)));
 }
 
-// ── Issue #241: governance proposal veto ──────────────────────────────────────
+// â”€â”€ Issue #241: governance proposal veto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_veto_holder_above_threshold_can_veto() {
@@ -6963,7 +7002,7 @@ fn test_veto_already_enacted_proposal_reverts() {
     assert_eq!(result, Err(Ok(VaultExtError::AlreadyVetoed)));
 }
 
-// ── Additional lottery coverage ────────────────────────────────────────────────
+// â”€â”€ Additional lottery coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_create_lottery_rejects_non_positive_prize() {
@@ -6997,7 +7036,7 @@ fn test_draw_lottery_twice_reverts() {
     assert_eq!(result, Err(Ok(VaultExtError::LotteryAlreadyActive)));
 }
 
-// ── Additional milestone coverage ───────────────────────────────────────────────
+// â”€â”€ Additional milestone coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_total_rewards_claimed_milestone_triggers_correctly() {
@@ -7021,7 +7060,7 @@ fn test_total_rewards_claimed_milestone_triggers_correctly() {
     assert_eq!(achieved.get(0).unwrap(), id);
 }
 
-// ── Additional oracle coverage ──────────────────────────────────────────────────
+// â”€â”€ Additional oracle coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_check_and_release_no_price_condition_reverts() {
@@ -7034,7 +7073,7 @@ fn test_check_and_release_no_price_condition_reverts() {
     assert_eq!(result, Err(Ok(VaultExtError::NotInitialized)));
 }
 
-// ── Issue #250: get_optimal_claim_frequency ─────────────────────────────────────
+// â”€â”€ Issue #250: get_optimal_claim_frequency â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_optimal_claim_frequency_no_position_returns_zero() {
@@ -7106,7 +7145,7 @@ fn test_optimal_claim_frequency_compounding_gain_is_positive() {
     assert!(advice.annual_compounding_gain > 0);
 }
 
-// ── Issue #256: governance vote weight delegation ───────────────────────────────
+// â”€â”€ Issue #256: governance vote weight delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_delegate_vote_weight_requires_active_position() {
@@ -7212,7 +7251,7 @@ fn test_redelegation_to_an_already_delegated_address_rejected() {
     // Bob has already delegated his own vote weight to charlie.
     f.vault.delegate_vote_weight(&f.bob, &charlie);
 
-    // Alice cannot now delegate to bob — that would be a second hop.
+    // Alice cannot now delegate to bob â€” that would be a second hop.
     let result = f.vault.try_delegate_vote_weight(&f.alice, &f.bob);
     assert_eq!(result, Err(Ok(VaultError::NotADelegate)));
 }
@@ -7234,7 +7273,7 @@ fn test_redelegating_to_a_new_delegate_moves_weight() {
     assert_eq!(f.vault.get_vote_delegate(&f.alice), Some(charlie));
 }
 
-// ── Issue #257: auto-convert reward on claim ────────────────────────────────────
+// â”€â”€ Issue #257: auto-convert reward on claim â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_auto_convert_swaps_reward_to_target_token() {
@@ -7275,7 +7314,7 @@ fn test_auto_convert_slippage_reverts_whole_claim() {
     target_admin.mint(&router_id, &1_000_000);
 
     f.vault.set_dex_router(&router_id);
-    // Requires at least 95% of the reward amount out — divisor=2 (50%) fails this.
+    // Requires at least 95% of the reward amount out â€” divisor=2 (50%) fails this.
     f.vault.set_auto_convert(&f.alice, &target_addr, &9_500_u32);
 
     f.vault.stake(&f.alice, &1_000_000);
@@ -7342,7 +7381,7 @@ fn test_set_auto_convert_rejects_bps_above_10000() {
     assert_eq!(result, Err(Ok(VaultError::InvalidRate)));
 }
 
-// ── Issue #251: exit-queue priority bidding ─────────────────────────────────────
+// â”€â”€ Issue #251: exit-queue priority bidding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_bid_for_queue_priority_moves_user_to_front() {
@@ -7446,7 +7485,7 @@ fn test_same_ledger_bids_ordered_by_amount_descending() {
 
     // Same ledger: bob bids a smaller amount first, then charlie bids
     // larger. Despite bidding second, charlie's higher bid should rank
-    // ahead of bob's — not simply whoever called last.
+    // ahead of bob's â€” not simply whoever called last.
     f.vault.bid_for_queue_priority(&f.bob, &1_000);
     f.vault.bid_for_queue_priority(&charlie, &2_000);
 
@@ -7456,7 +7495,7 @@ fn test_same_ledger_bids_ordered_by_amount_descending() {
     );
 }
 
-// ── Issue #275: reward Gini coefficient ───────────────────────────────────────
+// â”€â”€ Issue #275: reward Gini coefficient â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_gini_equal_rewards_returns_zero_bps() {
@@ -7486,7 +7525,7 @@ fn test_gini_one_staker_all_rewards_is_high() {
     // "now", so they've accrued nothing yet, while alice has 1000 ledgers
     // of accrual behind her. With n = 10 and only one nonzero reward, the
     // discrete-population Gini formula gives exactly (n-1)/n * 10000 = 9000
-    // bps — the closest a finite population can get to the theoretical 10
+    // bps â€” the closest a finite population can get to the theoretical 10
     // 000 for "one holds everything" (see the doc comment on
     // `get_reward_gini_coefficient`).
     for _ in 0..9 {
@@ -7543,7 +7582,7 @@ fn test_gini_requires_admin_auth() {
     f.vault.get_reward_gini_coefficient();
 }
 
-// ── Issue #276: seasonal reward multiplier ────────────────────────────────────
+// â”€â”€ Issue #276: seasonal reward multiplier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_season_boosts_reward_during_window() {
@@ -7578,7 +7617,7 @@ fn test_season_base_rate_outside_window() {
     set_ledger(&f.env, 1_000);
     f.vault.stake(&f.alice, &1_000_000);
 
-    // Scheduled far in the future — doesn't affect this claim.
+    // Scheduled far in the future â€” doesn't affect this claim.
     f.vault.add_season(
         &f.admin,
         &soroban_sdk::String::from_str(&f.env, "Future Event"),
@@ -7666,7 +7705,7 @@ fn test_remove_season_and_get_active_season() {
     assert!(f.vault.get_active_season().is_none());
 }
 
-// ── Issue #274: staker bio ────────────────────────────────────────────────────
+// â”€â”€ Issue #274: staker bio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_and_get_staker_bio() {
@@ -7731,7 +7770,7 @@ fn test_staker_bio_persists_after_unstake() {
     );
 }
 
-// ── Issue #298: pool sunsetting workflow ──────────────────────────────────────
+// â”€â”€ Issue #298: pool sunsetting workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_full_sunset_workflow_active_to_closed() {
@@ -7815,7 +7854,7 @@ fn test_queries_work_when_pool_closed() {
     assert_eq!(f.vault.total_staked(), 0);
 }
 
-// ── Issue #308: unstake-fee-funded buyback & burn ─────────────────────────────
+// â”€â”€ Issue #308: unstake-fee-funded buyback & burn â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_fee_buyback_disabled_by_default_routes_fee_to_treasury() {
@@ -7918,7 +7957,7 @@ fn test_execute_fee_buyback_swaps_via_dex_for_different_reward_token() {
     let (reserve, total_burned) = f.vault.get_fee_buyback_stats();
     assert_eq!(reserve, 0);
     assert_eq!(total_burned, 15_000);
-    // Swapped in then burned — nothing left in the vault's reward-token balance.
+    // Swapped in then burned â€” nothing left in the vault's reward-token balance.
     assert_eq!(reward_token_client.balance(&f.vault.address), 0);
 }
 
@@ -7938,7 +7977,7 @@ fn test_execute_fee_buyback_reverts_without_router_for_different_reward_token() 
     assert_eq!(result, Err(Ok(VaultFeatureError::NoDexRouterConfigured)));
 }
 
-// ── Issue #309: staker onboarding checklist ───────────────────────────────────
+// â”€â”€ Issue #309: staker onboarding checklist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_onboarding_checklist_starts_all_false() {
@@ -8057,7 +8096,7 @@ fn test_onboarding_completed_event_fires_once() {
     assert_eq!(completed.len(), 1);
 }
 
-// ── Issue #310: contract allowance delegation ─────────────────────────────────
+// â”€â”€ Issue #310: contract allowance delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_contract_delegate_defaults_to_none() {
@@ -8141,7 +8180,7 @@ fn test_stake_via_contract_revoked_contract_rejected() {
     assert_eq!(result, Err(Ok(VaultFeatureError::NotAContractDelegate)));
 }
 
-// ── Issue #311: TVL-based reward-rate smoothing ───────────────────────────────
+// â”€â”€ Issue #311: TVL-based reward-rate smoothing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_tvl_smoothing_disabled_by_default() {
@@ -8217,7 +8256,7 @@ fn test_set_tvl_smoothing_enabled_requires_admin_auth() {
     assert_eq!(f.env.auths()[0].0, f.admin);
 }
 
-// ── Issue #286: debt NFT collateral tests ──────────────────────────────────
+// â”€â”€ Issue #286: debt NFT collateral tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_mint_debt_nft_creates_nft() {
@@ -8306,7 +8345,7 @@ fn test_burn_debt_nft_reverts_for_wrong_holder() {
     assert_eq!(result, Err(Ok(VaultFeatureError::NotNftHolder)));
 }
 
-// ── Issue #285: cross-pool yield detector tests ───────────────────────────
+// â”€â”€ Issue #285: cross-pool yield detector tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_set_and_get_competitor_pools() {
@@ -8342,7 +8381,7 @@ fn test_detect_higher_yield_no_competitors() {
     assert_eq!(results.len(), 0);
 }
 
-// ── Issue #283: position AMM tests ─────────────────────────────────────────
+// â”€â”€ Issue #283: position AMM tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_create_and_accept_swap_offer() {
@@ -8453,7 +8492,7 @@ fn test_swap_positions_updated_correctly() {
     assert_ne!(f.vault.shares_of(&f.bob), bob_before);
 }
 
-// ── Issue #284: reward prediction market tests ─────────────────────────────
+// â”€â”€ Issue #284: reward prediction market tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
 fn test_open_and_resolve_market_higher() {
@@ -8519,3 +8558,120 @@ fn test_rate_unchanged_refunds_all() {
     let winnings = f.vault.claim_prediction_winnings(&f.alice);
     assert_eq!(winnings, 1_000);
 }
+
+// â”€â”€ operator dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_operator_dashboard_defaults_for_empty_pool() {
+    let f = VaultFixture::new();
+    let dashboard = f.vault.get_operator_dashboard();
+
+    assert_eq!(dashboard.pool_health.total_staked, 0);
+    assert_eq!(dashboard.staker_count, 0);
+    assert_eq!(dashboard.inactive_staker_count, 0);
+    assert_eq!(dashboard.pending_exit_queue_count, 0);
+    assert_eq!(dashboard.total_ever_staked, 0);
+    assert_eq!(dashboard.total_ever_claimed, 0);
+    assert_eq!(dashboard.largest_position, 0);
+    assert_eq!(dashboard.smallest_active_position, 0);
+    assert_eq!(dashboard.sunset_state, SunsetState::Active);
+    assert_eq!(dashboard.open_governance_proposals, 0);
+    assert_eq!(dashboard.reward_token_runway_days, 0);
+}
+
+#[test]
+fn test_operator_dashboard_populates_operational_metrics() {
+    let f = VaultFixture::new();
+    setup_reward_pool(&f);
+    set_ledger(&f.env, 1);
+    f.vault.stake(&f.alice, &1_000_000);
+    f.vault.stake(&f.bob, &500_000);
+
+    set_ledger(&f.env, STELLAR_LEDGERS_PER_YEAR);
+    assert!(f.vault.claim(&f.alice) > 0);
+    f.vault.set_cooldown_period(&100);
+    f.vault.request_unstake(&f.alice, &200_000);
+    f.vault
+        .create_proposal(&f.bob, &ProposableParam::MinStake, &1_i128, &100_u32);
+
+    let dashboard = f.vault.get_operator_dashboard();
+    assert_eq!(dashboard.pool_health.total_staked, 1_300_000);
+    assert_eq!(dashboard.staker_count, 2);
+    assert_eq!(dashboard.inactive_staker_count, 1);
+    assert_eq!(dashboard.pending_exit_queue_count, 1);
+    assert_eq!(dashboard.total_ever_staked, 1_500_000);
+    assert!(dashboard.total_ever_claimed > 0);
+    assert_eq!(dashboard.largest_position, 800_000);
+    assert_eq!(dashboard.smallest_active_position, 500_000);
+    assert_eq!(dashboard.sunset_state, SunsetState::Active);
+    assert_eq!(dashboard.open_governance_proposals, 1);
+    assert_eq!(
+        dashboard.reward_token_runway_days,
+        f.vault.get_reward_token_solvency_ratio()
+    );
+}
+
+#[test]
+#[should_panic]
+fn test_operator_dashboard_requires_admin_auth() {
+    let f = VaultFixture::with_mock_auths(false);
+    f.vault.get_operator_dashboard();
+}
+
+fn reward_tiers(env: &Env) -> Vec<RewardTier> {
+    let mut tiers = Vec::new(env);
+    tiers.push_back(RewardTier {
+        max_amount: 1_000,
+        rate_bps: 1_000,
+    });
+    tiers.push_back(RewardTier {
+        max_amount: 10_000,
+        rate_bps: 800,
+    });
+    tiers.push_back(RewardTier {
+        max_amount: i128::MAX,
+        rate_bps: 500,
+    });
+    tiers
+}
+
+#[test]
+fn test_layered_reward_tiers_first_band_rate() {
+    let f = VaultFixture::new();
+    f.vault.set_reward_tiers(&reward_tiers(&f.env));
+    f.vault.stake(&f.alice, &1_000);
+    set_ledger(&f.env, STELLAR_LEDGERS_PER_YEAR);
+
+    assert_eq!(f.vault.calc_pending_reward(&f.alice), 100);
+}
+
+#[test]
+fn test_layered_reward_tiers_split_across_bands() {
+    let f = VaultFixture::new();
+    f.vault.set_reward_tiers(&reward_tiers(&f.env));
+    f.vault.stake(&f.alice, &5_000);
+    set_ledger(&f.env, STELLAR_LEDGERS_PER_YEAR);
+
+    assert_eq!(f.vault.calc_pending_reward(&f.alice), 420);
+}
+
+#[test]
+fn test_layered_reward_tiers_blended_effective_rate() {
+    let f = VaultFixture::new();
+    f.vault.set_reward_tiers(&reward_tiers(&f.env));
+
+    assert_eq!(f.vault.get_effective_rate_for_amount(&5_000), 840);
+}
+
+#[test]
+fn test_layered_reward_tiers_empty_uses_flat_rate() {
+    let f = VaultFixture::new();
+    f.vault.set_reward_rate_bps(&700);
+    f.vault.set_reward_tiers(&Vec::new(&f.env));
+    f.vault.stake(&f.alice, &1_000);
+    set_ledger(&f.env, STELLAR_LEDGERS_PER_YEAR);
+
+    assert_eq!(f.vault.calc_pending_reward(&f.alice), 70);
+    assert_eq!(f.vault.get_effective_rate_for_amount(&1_000), 700);
+}
+

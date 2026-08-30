@@ -1,8 +1,8 @@
-//! Reputation score time-decay mechanism.
+﻿//! Reputation score time-decay mechanism.
 //!
 //! Reputation scores gradually decrease when a staker is inactive (no claims,
 //! no stakes, no unstakes) for an extended period. The decay rate and epoch
-//! length are admin-configurable. Decay applies to `total_score` only — not
+//! length are admin-configurable. Decay applies to `total_score` only â€” not
 //! individual sub-components.
 //!
 //! # Storage
@@ -17,7 +17,9 @@ use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
 use crate::storage::ReputationScore;
-use crate::vault::{VaultContract, BOOST_BPS_BASE};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
+use crate::vault::{ BOOST_BPS_BASE};
 
 /// Instance-storage key for the decay configuration.
 const DECAY_CFG_KEY: Symbol = symbol_short!("rd_cfg");
@@ -36,7 +38,7 @@ pub struct DecayConfig {
     pub epoch_ledgers: u32,
 }
 
-// ── storage helpers ──────────────────────────────────────────────────────────
+// â”€â”€ storage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn get_decay_config(env: &Env) -> Option<DecayConfig> {
     env.storage().instance().get(&DECAY_CFG_KEY)
@@ -110,8 +112,48 @@ pub fn compute_decayed_score(
     (decayed, score.total_score, epochs_elapsed)
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
+    /// Minimal base reputation score computed from a user's current position,
+    /// before decay is applied. Reduced to `total_score` only â€” no per-sub-score
+    /// business logic (that lives on the full reputation feature, not this
+    /// decay-only module) â€” so every sub-score is folded into `total_score`
+    /// directly, capped at `BOOST_BPS_BASE` (10 000).
+    fn get_reputation_score_raw(env: &Env, user: &Address) -> ReputationScore {
+        let shares = balance::get_shares(env, user);
+        if shares == 0 {
+            return ReputationScore {
+                duration_score: 0,
+                consistency_score: 0,
+                size_score: 0,
+                streak_score: 0,
+                total_score: 0,
+            };
+        }
+
+        let staked_at: u32 = env
+            .storage()
+            .persistent()
+            .get(&crate::storage::DataKey::StakedAtLedger(user.clone()))
+            .unwrap_or(0);
+        let current = env.ledger().sequence();
+        let tenure_ledgers = current.saturating_sub(staked_at);
+
+        // Score linearly with tenure, capped at the max â€” a full year staked
+        // reaches the cap.
+        let total_score = ((tenure_ledgers as u64 * BOOST_BPS_BASE as u64)
+            / crate::vault::STELLAR_LEDGERS_PER_YEAR as u64)
+            .min(BOOST_BPS_BASE as u64) as u32;
+
+        ReputationScore {
+            duration_score: total_score,
+            consistency_score: 0,
+            size_score: 0,
+            streak_score: 0,
+            total_score,
+        }
+    }
+
     /// Configure the reputation decay rate. Admin only.
     ///
     /// `decay_bps_per_epoch`: basis points subtracted from `total_score` per
@@ -151,7 +193,7 @@ impl VaultContract {
     }
 
     /// Recalculate and return the user's reputation score with time decay
-    /// applied. Public — no auth required.
+    /// applied. Public â€” no auth required.
     ///
     /// If the user has no active position, returns all zeros. Otherwise computes
     /// the base score, applies decay based on elapsed epochs since last activity,
@@ -175,3 +217,12 @@ impl VaultContract {
         }
     }
 }
+
+
+
+
+
+
+
+
+
