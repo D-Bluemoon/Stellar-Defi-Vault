@@ -1,7 +1,7 @@
-//! Position price oracle (issue #290).
+﻿//! Position price oracle (issue #290).
 //!
-//! Publishes the fair value of a staking position — principal plus accrued
-//! rewards — as an on-chain reference price, so a secondary market trading
+//! Publishes the fair value of a staking position â€” principal plus accrued
+//! rewards â€” as an on-chain reference price, so a secondary market trading
 //! stake receipts or debt NFTs has something to quote against.
 //!
 //! The price is **informational only**. Nothing in this module feeds back into
@@ -18,7 +18,8 @@ use soroban_sdk::{contractimpl, contracttype, symbol_short, Address, Env, Symbol
 use crate::admin;
 use crate::balance;
 use crate::errors::VaultError;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 use crate::vesting_cliff;
 
 /// Most recent price snapshots retained per user. Older entries roll off.
@@ -55,7 +56,7 @@ pub fn history_for(env: &Env, user: &Address) -> Vec<PositionPrice> {
 /// Build a snapshot for `user` at the current ledger.
 ///
 /// `fair_value` is the plain sum of principal and pending reward, as the issue
-/// specifies — no discounting for lock-up, cliff, or early-exit penalty. A
+/// specifies â€” no discounting for lock-up, cliff, or early-exit penalty. A
 /// consumer pricing a position for sale should apply its own haircut.
 ///
 /// The pending-reward figure passes through the vesting cliff, so a position
@@ -85,7 +86,7 @@ fn record(env: &Env, price: &PositionPrice) {
     let mut history = history_for(env, &price.user);
 
     // Roll before pushing, so the stored vector never momentarily exceeds the
-    // cap — a Vec that grows unbounded is how per-user storage turns into an
+    // cap â€” a Vec that grows unbounded is how per-user storage turns into an
     // unpayable archival bill.
     while history.len() >= MAX_PRICE_HISTORY {
         history.remove(0);
@@ -102,7 +103,7 @@ fn record(env: &Env, price: &PositionPrice) {
     );
 }
 
-#[contractimpl]
+#[cfg_attr(not(test), contractimpl)]
 impl VaultContract {
     /// Publish a fair-value snapshot for one position. Admin only.
     pub fn publish_position_price(env: Env, user: Address) -> Result<PositionPrice, VaultError> {
@@ -144,3 +145,18 @@ impl VaultContract {
         history_for(&env, &user)
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
