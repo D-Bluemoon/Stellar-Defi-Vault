@@ -48,3 +48,5 @@ mod test_validator_rewards;
 
 #[cfg(test)]
 mod test_features_287_290;
+
+pub mod event_verbosity;
