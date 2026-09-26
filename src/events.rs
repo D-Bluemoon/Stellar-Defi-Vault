@@ -7,6 +7,20 @@ pub fn deposit(env: &Env, depositor: &Address, amount: i128, shares_minted: i128
         .publish(topics, (amount, shares_minted, ledger));
 }
 
+pub fn referral_bonus_paid(
+    env: &Env,
+    referrer: &Address,
+    referee: &Address,
+    referrer_bonus: i128,
+    referee_bonus: i128,
+    ledger: u32,
+) {
+    env.events().publish(
+        (symbol_short!("ref_bns"), referrer.clone(), referee.clone()),
+        (referrer_bonus, referee_bonus, ledger),
+    );
+}
+
 pub fn withdraw(
     env: &Env,
     withdrawer: &Address,
@@ -19,8 +33,46 @@ pub fn withdraw(
         .publish(topics, (shares_burned, amount_returned, ledger));
 }
 
+/// Emitted when a user exits through the paused-vault break-glass path.
+pub fn emergency_withdrawal(
+    env: &Env,
+    user: &Address,
+    amount_returned: i128,
+    rewards_forfeited: i128,
+    ledger: u32,
+) {
+    env.events().publish(
+        (symbol_short!("emg_wdraw"), user.clone()),
+        (amount_returned, rewards_forfeited, ledger),
+    );
+}
+
+pub fn position_locked(
+    env: &Env,
+    user: &Address,
+    lock_duration_ledgers: u32,
+    boost_bps: u32,
+    unlocks_at: u32,
+    ledger: u32,
+) {
+    env.events().publish(
+        (symbol_short!("pos_lock"), user.clone()),
+        (lock_duration_ledgers, boost_bps, unlocks_at, ledger),
+    );
+}
+
 pub fn unpaused(env: &Env, admin: &Address, ledger: u32) {
     let topics = (symbol_short!("unpaused"), admin);
+    env.events().publish(topics, (ledger,));
+}
+
+/// Emitted when a `pause_until` schedule lazily lifts a pause on some
+/// unrelated call, rather than via an explicit admin `unpause()` (issue
+/// #556) — no admin address is relevant here since no one authorized this
+/// specific transaction to unpause the pool; it just happened to be the
+/// first call after `target_ledger`.
+pub fn auto_unpaused(env: &Env, ledger: u32) {
+    let topics = (symbol_short!("auto_unp"),);
     env.events().publish(topics, (ledger,));
 }
 
@@ -364,6 +416,14 @@ pub fn auto_paused(env: &Env, reward_balance: i128, threshold: i128) {
 pub fn claimed(env: &Env, user: &Address, reward: i128, ledger: u32) {
     let topics = (symbol_short!("claimed"), user);
     env.events().publish(topics, (reward, ledger));
+}
+
+/// Emitted by `claim()` when a configured gas rebate is paid out of the
+/// dedicated gas-rebate pool alongside the ordinary reward payout (issue #569).
+pub fn gas_rebate_paid(env: &Env, user: &Address, amount: i128) {
+    let topics = (symbol_short!("gas_rbt"), user);
+    env.events()
+        .publish(topics, (amount, env.ledger().sequence()));
 }
 
 /// Emitted by `initialize` so indexers can detect new pool deployments on-chain.
@@ -857,6 +917,33 @@ pub fn milestone_achieved(
         .publish(topics, (milestone_id, milestone_name.clone(), ledger));
 }
 
+/// Emitted when a user successfully completes a quiz and unlocks a reward tier.
+pub fn quiz_completed(env: &Env, user: &Address, quiz_id: u32, tier_unlocked: u32, ledger: u32) {
+    let topics = (symbol_short!("quiz_comp"), user);
+    env.events()
+        .publish(topics, (quiz_id, tier_unlocked, ledger));
+}
+
+/// Emitted when a user fails a quiz attempt.
+pub fn quiz_attempt_failed(
+    env: &Env,
+    user: &Address,
+    quiz_id: u32,
+    remaining_attempts: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("quiz_fail"), user);
+    env.events()
+        .publish(topics, (quiz_id, remaining_attempts, ledger));
+}
+
+/// Emitted when an admin adds a new quiz.
+pub fn quiz_added(env: &Env, admin: &Address, quiz_id: u32, tier_unlocked: u32, ledger: u32) {
+    let topics = (symbol_short!("quiz_add"), admin);
+    env.events()
+        .publish(topics, (quiz_id, tier_unlocked, ledger));
+}
+
 // ── Issue #240: oracle-triggered lock-up release ──────────────────────────────
 
 pub fn condition_triggered(
@@ -1073,6 +1160,16 @@ pub fn sunset_stage_changed(env: &Env, new_state: crate::storage::SunsetState, l
     env.events().publish(topics, (new_state, ledger));
 }
 
+/// Emitted once when `initiate_sunset` starts a graceful pool sunset
+/// (issue #525). `exit_deadline` is the ledger by which existing users are
+/// asked to have exited; deposits stay blocked for good afterwards, while
+/// withdrawals and claims remain open.
+pub fn sunset_initiated(env: &Env, admin: &Address, exit_deadline: u32) {
+    let topics = (symbol_short!("snst_ini"), admin);
+    env.events()
+        .publish(topics, (exit_deadline, env.ledger().sequence()));
+}
+
 pub fn force_resolved(
     env: &Env,
     user: &Address,
@@ -1087,39 +1184,19 @@ pub fn force_resolved(
 
 // ── Issue #286: debt NFT collateral ─────────────────────────────────────────
 
-pub fn debt_nft_minted(
-    env: &Env,
-    issuer: &Address,
-    nft_id: u32,
-    face_value: i128,
-    ledger: u32,
-) {
+pub fn debt_nft_minted(env: &Env, issuer: &Address, nft_id: u32, face_value: i128, ledger: u32) {
     let topics = (symbol_short!("dbt_mnt"), issuer);
-    env.events()
-        .publish(topics, (nft_id, face_value, ledger));
+    env.events().publish(topics, (nft_id, face_value, ledger));
 }
 
-pub fn debt_nft_burned(
-    env: &Env,
-    holder: &Address,
-    nft_id: u32,
-    ledger: u32,
-) {
+pub fn debt_nft_burned(env: &Env, holder: &Address, nft_id: u32, ledger: u32) {
     let topics = (symbol_short!("dbt_brn"), holder);
-    env.events()
-        .publish(topics, (nft_id, ledger));
+    env.events().publish(topics, (nft_id, ledger));
 }
 
-pub fn debt_nft_transferred(
-    env: &Env,
-    from: &Address,
-    to: &Address,
-    nft_id: u32,
-    ledger: u32,
-) {
+pub fn debt_nft_transferred(env: &Env, from: &Address, to: &Address, nft_id: u32, ledger: u32) {
     let topics = (symbol_short!("dbt_trn"), from);
-    env.events()
-        .publish(topics, (to, nft_id, ledger));
+    env.events().publish(topics, (to, nft_id, ledger));
 }
 
 // ── Issue #283: position AMM ─────────────────────────────────────────────────
@@ -1133,8 +1210,10 @@ pub fn swap_executed(
     ledger: u32,
 ) {
     let topics = (symbol_short!("swap_exe"), offerer);
-    env.events()
-        .publish(topics, (counterparty, offerer_amount, counterparty_amount, ledger));
+    env.events().publish(
+        topics,
+        (counterparty, offerer_amount, counterparty_amount, ledger),
+    );
 }
 
 // ── Issue #284: reward prediction market ─────────────────────────────────────
@@ -1149,6 +1228,11 @@ pub fn market_resolved(
     let topics = (symbol_short!("mkt_rsl"), env.current_contract_address());
     env.events()
         .publish(topics, (outcome, winning_side_total, losing_side_total, ledger));
+    let topics = (symbol_short!("mkt_rsl"),);
+    env.events().publish(
+        topics,
+        (outcome, winning_side_total, losing_side_total, ledger),
+    );
 }
 
 // ── Issue #285: cross-pool yield detector ────────────────────────────────────
@@ -1161,8 +1245,7 @@ pub fn higher_yield_detected(
     ledger: u32,
 ) {
     let topics = (symbol_short!("hi_yld"), competitor);
-    env.events()
-        .publish(topics, (their_rate, our_rate, ledger));
+    env.events().publish(topics, (their_rate, our_rate, ledger));
 }
 // ── Issue #281: Fee Revenue Sharing ──────────────────────────────────────────
 
@@ -1177,13 +1260,7 @@ pub fn revenue_distributed(
         .publish(topics, (merkle_root.clone(), total_amount, ledger));
 }
 
-pub fn revenue_share_claimed(
-    env: &Env,
-    user: &Address,
-    amount: i128,
-    epoch: u32,
-    ledger: u32,
-) {
+pub fn revenue_share_claimed(env: &Env, user: &Address, amount: i128, epoch: u32, ledger: u32) {
     let topics = (symbol_short!("rev_clm"), user);
     env.events().publish(topics, (amount, epoch, ledger));
 }
@@ -1267,3 +1344,236 @@ pub fn onboarding_completed(env: &Env, user: &Address, ledger: u32) {
     let topics = (symbol_short!("onb_done"), user);
     env.events().publish(topics, (ledger,));
 }
+/// Issue #242: emitted when a stake receives a matching contribution.
+pub fn stake_matched(
+    env: &Env,
+    user: &Address,
+    stake_amount: i128,
+    match_amount: i128,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("stk_match"), user);
+    env.events()
+        .publish(topics, (stake_amount, match_amount, ledger));
+}
+
+/// Issue #243: emitted when a user purchases unstake insurance.
+pub fn insurance_purchased(env: &Env, user: &Address, premium: i128, coverage: i128, ledger: u32) {
+    let topics = (symbol_short!("ins_buy"), user);
+    env.events().publish(topics, (premium, coverage, ledger));
+}
+
+// ── Keeper registry ───────────────────────────────────────────────────────────
+
+pub fn keeper_registered(env: &Env, keeper: &Address, ledger: u32) {
+    let topics = (symbol_short!("kpr_reg"), keeper);
+    env.events().publish(topics, (ledger,));
+}
+
+pub fn keeper_deregistered(env: &Env, keeper: &Address, ledger: u32) {
+    let topics = (symbol_short!("kpr_dreg"), keeper);
+    env.events().publish(topics, (ledger,));
+}
+
+// ── Epoch reward outflow cap ─────────────────────────────────────────────────
+
+/// Emitted when a claim exceeds the remaining epoch cap headroom and the
+/// excess is queued as a `DeferredReward`, claimable once `next_epoch_start`
+/// is reached.
+pub fn reward_deferred(env: &Env, user: &Address, deferred_amount: i128, next_epoch_start: u32) {
+    let topics = (symbol_short!("rwd_defr"), user);
+    env.events().publish(
+        topics,
+        (deferred_amount, next_epoch_start, env.ledger().sequence()),
+    );
+}
+
+/// Issue #244: emitted when rewards are claimed in a non-stake output token.
+// ── Issue #374: admin action nonce (replay protection) ───────────────────────
+
+/// Emitted by `execute_admin_action_with_nonce()` after a nonce-gated admin
+/// action successfully executes. `nonce` is the value that was just consumed
+/// — the admin's next call must supply `nonce + 1`.
+pub fn admin_action_nonce_consumed(env: &Env, admin: &Address, nonce: u64, ledger: u32) {
+    let topics = (symbol_short!("adm_nonce"), admin);
+    env.events().publish(topics, (nonce, ledger));
+}
+
+// ── Issue #376: halving countdown ─────────────────────────────────────────────
+// Read-only advisory (like `reward_smoothing()`'s `SmoothingStatus`) — no
+// event to emit, nothing about pool state changes when it's queried.
+
+// ── Issue #375: governance proposal comment thread ────────────────────────────
+
+/// Emitted by `post_proposal_comment()` when a stake-weighted comment is
+/// added to a proposal's thread.
+pub fn proposal_comment_posted(
+    env: &Env,
+    author: &Address,
+    proposal_id: u32,
+    stake_weight: i128,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("prop_cmt"), author);
+    env.events()
+        .publish(topics, (proposal_id, stake_weight, ledger));
+}
+
+// ── Issue #377: position health alert ─────────────────────────────────────────
+
+/// Emitted by `position_health_alert()` when at least one attention-worthy
+/// condition is true for the checked position.
+pub fn position_health_alert(
+    env: &Env,
+    user: &Address,
+    approaching_expiry: bool,
+    lock_ending_soon: bool,
+    loan_at_risk: bool,
+    rewards_near_cap: bool,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("pos_hlth"), user);
+    env.events().publish(
+        topics,
+        (
+            approaching_expiry,
+            lock_ending_soon,
+            loan_at_risk,
+            rewards_near_cap,
+            ledger,
+        ),
+    );
+}
+
+pub fn reward_claimed_in_token(
+    env: &Env,
+    user: &Address,
+    reward_amount: i128,
+    output_token: &Address,
+    output_amount: i128,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("rw_in_tok"), user);
+    env.events().publish(
+        topics,
+        (reward_amount, output_token.clone(), output_amount, ledger),
+    );
+}
+
+// ── Issue #392: loyalty points events ───────────────────────────────────────
+
+pub fn points_awarded(env: &Env, user: &Address, amount: u32, new_balance: u32, ledger: u32) {
+    let topics = (symbol_short!("loy_awd"), user.clone());
+    env.events().publish(topics, (amount, new_balance, ledger));
+}
+
+pub fn points_redeemed(
+    env: &Env,
+    user: &Address,
+    amount: u32,
+    benefit: crate::storage::PointsBenefit,
+    new_balance: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("loy_rdm"), user.clone());
+    env.events()
+        .publish(topics, (amount, benefit, new_balance, ledger));
+}
+
+pub fn loyalty_config_updated(env: &Env, rules_len: u32, ledger: u32) {
+    let topics = (symbol_short!("loy_cfg"),);
+    env.events().publish(topics, (rules_len, ledger));
+}
+
+/// Emitted when an address's KYC approval status changes.
+pub fn kyc_status_changed(env: &Env, user: &Address, approved: bool) {
+    let topics = (symbol_short!("kyc_set"), user);
+    env.events().publish(topics, approved);
+}
+
+// ── Issue #541: deposit receipt memo ─────────────────────────────────────────
+
+/// Emitted by `deposit_with_memo()` (issue #541).
+pub fn deposit_completed(
+    env: &Env,
+    depositor: &Address,
+    amount: i128,
+    shares_minted: i128,
+    memo: &soroban_sdk::String,
+    ledger: u32,
+) {
+    let topics = (Symbol::new(env, "deposit_completed"), depositor);
+    env.events()
+        .publish(topics, (amount, shares_minted, memo.clone(), ledger));
+}
+
+// ── Issue #540: scheduled reward-rate ramp ───────────────────────────────────
+
+/// Emitted when a linear reward-rate ramp begins (issue #540).
+pub fn rate_ramp_started(
+    env: &Env,
+    start_rate_bps: u32,
+    target_rate_bps: u32,
+    duration_ledgers: u32,
+    start_ledger: u32,
+) {
+    let topics = (Symbol::new(env, "rate_ramp_started"),);
+    env.events().publish(
+        topics,
+        (
+            start_rate_bps,
+            target_rate_bps,
+            duration_ledgers,
+            start_ledger,
+        ),
+    );
+}
+
+/// Emitted when a linear reward-rate ramp completes or is settled (issue #540).
+pub fn rate_ramp_completed(env: &Env, final_rate_bps: u32, ledger: u32) {
+    let topics = (Symbol::new(env, "rate_ramp_completed"),);
+    env.events()
+        .publish(topics, (final_rate_bps, ledger));
+}
+
+// ── Issue #539: per-token fee override ───────────────────────────────────────
+
+/// Emitted when a per-token fee override is configured or cleared (issue #539).
+pub fn token_fee_override_set(
+    env: &Env,
+    token: &Address,
+    deposit_fee_bps: Option<u32>,
+    unstake_fee_bps: Option<u32>,
+    ledger: u32,
+) {
+    let topics = (Symbol::new(env, "token_fee_set"), token);
+    env.events()
+        .publish(topics, (deposit_fee_bps, unstake_fee_bps, ledger));
+}
+
+// ── Issues #542-545 ────────────────────────────────────────────────────────
+
+/// Emitted once per low episode when the reward pool drops below the
+/// admin-configured threshold relative to outstanding obligations (#544).
+/// The notified flag resets on recovery, so a new episode emits again —
+/// but repeated calls while continuously low never re-emit.
+pub fn reward_pool_low(
+    env: &Env,
+    pool_balance: i128,
+    outstanding_obligations: i128,
+    threshold_bps: u32,
+    ledger: u32,
+) {
+    let topics = (symbol_short!("rwpl_low"),);
+    env.events().publish(
+        topics,
+        (pool_balance, outstanding_obligations, threshold_bps, ledger),
+    );
+}
+
+/// Emitted when a keeper records an APY snapshot into the rolling history (#543).
+pub fn apy_snapshot_recorded(env: &Env, apy_bps: u32, ledger: u32) {
+    let topics = (symbol_short!("apy_snap"),);
+    env.events().publish(topics, (apy_bps, ledger));
+}
+

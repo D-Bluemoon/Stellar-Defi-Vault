@@ -4,10 +4,6 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum VaultError {
-    /// Returned by initialize-dependent getters and stake/unstake flows when
-    /// the admin, token, or other required contract state has not been stored
-    /// yet, and by `deploy_to_yield()` / `withdraw_from_yield()` when no yield
-    /// protocol has been registered via `set_yield_protocol()`.
     NotInitialized = 1,
     /// Returned by initialize() when the vault has already been initialized,
     /// and by `enact_proposal()` when the proposal has already been enacted.
@@ -91,9 +87,13 @@ pub enum VaultError {
     /// Returned by `end_boost_campaign()` when there is no active boost campaign
     /// to cancel.
     NoCampaignActive = 26,
-    /// Returned by `set_leaderboard_size()` when the requested leaderboard cap
-    /// exceeds 20.
-    LeaderboardSizeTooLarge = 27,
+    /// Returned by `deposit()`, `stake()`, and `stake_and_claim()` when the
+    /// admin-configured unique-depositor cap (issue #568) has already been
+    /// reached and the caller has never deposited before. Reuses the numeric
+    /// slot of the never-implemented `LeaderboardSizeTooLarge` case because
+    /// Soroban caps `#[contracterror]` enums at 50 variants and all other slots
+    /// are live.
+    DepositorCapReached = 27,
     /// Returned by `view_all_positions()` when `page_size` is 0 or greater than 20.
     PageSizeTooLarge = 28,
     /// Returned by staking entrypoints when KYC enforcement is enabled and the
@@ -156,12 +156,65 @@ pub enum VaultError {
     InvalidRewardAmount = 48,
     /// Returned when a new stake is attempted after `start_graceful_shutdown` has been called.
     PoolShuttingDown = 49,
-    /// Reverts with NotInEpochMode error if pool is not configured for epoch mode.
-    NotInEpochMode = 50,
+    /// Returned by every admin-gated entrypoint after admin renouncement.
+    NoAdmin = 50,
+}
+
+/// Typed validation failures for public APIs that historically panicked.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum PublicApiError {
+    Unauthorized = 1,
+    NotInitialized = 2,
+    InvalidAllocation = 3,
+    UnsupportedToken = 4,
+    ActionNotYetExecutable = 5,
+    ActionNotFound = 6,
+    AutoCompoundDisabled = 7,
+    PositionNotFound = 8,
+    NotNftOwner = 9,
+    ArithmeticError = 10,
+    NoAdmin = 11,
+}
+
+impl From<VaultError> for PublicApiError {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => Self::Unauthorized,
+            VaultError::NotInitialized => Self::NotInitialized,
+            VaultError::NoAdmin => Self::NoAdmin,
+            VaultError::PositionNotFound => Self::PositionNotFound,
+            VaultError::ArithmeticError => Self::ArithmeticError,
+            _ => Self::Unauthorized,
+        }
+    }
+}
+
+/// Errors for voluntarily locked positions. Kept separate because `VaultError`
+/// has reached Soroban's 50-variant contract error limit.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultLockError {
+    NotInitialized = 1,
+    Unauthorized = 3,
+    ZeroAmount = 4,
+    InsufficientShares = 5,
+    VaultPaused = 6,
+    ArithmeticError = 8,
+    WithdrawalLimitExceeded = 9,
+    PositionNotFound = 18,
+    UseCooldownFlow = 20,
+    PositionLocked = 51,
+    LockDurationTooLong = 52,
+    InvalidLockBoostSchedule = 53,
+    TooManyLockBoostTiers = 54,
+    LockAlreadyActive = 55,
 }
 
 /// Soroban caps every `#[contracterror]`/`#[contracttype]` enum at 50 variants
-/// (`ScSpecUdtUnionV0::cases` is a `VecM<_, 50>` in stellar-xdr) — `VaultError`
+/// (`ScSpecUdtUnionV0::cases` is a `VecM<_, 50>` in stellar-xdr) ΓÇö `VaultError`
 /// above is already at exactly that cap, so new error cases for issues #205,
 /// #206, and #209 can't be added to it. This second, separate error enum
 /// holds just those new cases, plus mirrors of the handful of `VaultError`
@@ -179,146 +232,143 @@ pub enum VaultExtError {
     ZeroAmount = 3,
     /// Mirrors `VaultError::ArithmeticError`.
     ArithmeticError = 4,
-    /// Mirrors `VaultError::AlreadyInitialized` — returned by `import_state()`.
+    /// Mirrors `VaultError::AlreadyInitialized` ΓÇö returned by `import_state()`.
     AlreadyInitialized = 5,
+    /// Mirrors `VaultError::PositionNotFound`.
+    PositionNotFound = 6,
     /// Returned by `set_insurance_rate_bps()` when `bps` exceeds 500 (5%)
     /// (issue #199).
-    InvalidInsuranceRate = 6,
+    InvalidInsuranceRate = 7,
     /// Returned by `export_state()` when more than 100 positions would be
     /// exported (issue #203).
-    TooManyPositions = 7,
+    TooManyPositions = 8,
     /// Returned by `set_fee_recipients()` when `recipients.len() > 5`
     /// (issue #197), and by `add_output_token()` when the output-token
     /// whitelist is already full (issue #244).
-    TooManyRecipients = 8,
+    TooManyRecipients = 9,
     /// Returned by `set_fee_recipients()` when the recipients' `share_bps`
     /// values don't sum to exactly 10 000 (issue #197).
-    InvalidFeeAllocation = 9,
+    InvalidFeeAllocation = 10,
     /// Returned by `queue_action()` when 5 actions are already pending
     /// (issue #195).
-    TooManyPendingActions = 10,
+    TooManyPendingActions = 11,
     /// Returned by `execute_action()`/`cancel_action()` when the given
     /// action id doesn't exist or was already executed/cancelled (issue
     /// #195).
-    ActionNotFound = 11,
+    ActionNotFound = 12,
     /// Returned by `execute_action()` when called before `executable_at`
     /// (issue #195).
-    ActionNotYetExecutable = 12,
+    ActionNotYetExecutable = 13,
     /// Returned by `initialize_multisig()` when `admins.len()` is 0 or > 5,
     /// or `threshold` is 0 or greater than `admins.len()` (issue #196).
-    InvalidMultisigConfig = 13,
+    InvalidMultisigConfig = 14,
     /// Returned by `propose_action()` when 10 open proposals already exist
     /// (issue #196).
-    TooManyProposals = 14,
+    TooManyProposals = 15,
     /// Returned by `propose_action()`/`approve_action()` when the caller is
     /// not one of the configured multisig admins (issue #196).
-    NotAMultisigAdmin = 15,
+    NotAMultisigAdmin = 16,
     /// Returned by `approve_action()` when the caller already approved this
     /// proposal (issue #196).
-    AlreadyApproved = 16,
+    AlreadyApproved = 17,
     /// Returned by `execute_proposal()` when approvals are below the
     /// configured threshold, or the proposal id doesn't exist / was already
     /// executed (issue #196).
-    ProposalNotReady = 17,
+    ProposalNotReady = 18,
     /// Returned by `rollback_last_rate_change()` when there is no previous
     /// rate to restore, or it was already rolled back (issue #206).
-    RollbackUnavailable = 18,
+    RollbackUnavailable = 19,
     /// Returned by `swap_and_stake()` when the DEX swap's output amount is
     /// below the caller-supplied `min_stake_amount` (issue #205).
-    SlippageExceeded = 19,
+    SlippageExceeded = 20,
     /// Returned by `swap_and_stake()` when `input_token` is not registered
     /// with a DEX router capable of swapping it to the stake token, or when
     /// no DEX router has been configured at all (issue #205). Also returned
     /// by `claim_in_token()` for an `output_token` that is not on the
     /// admin-managed whitelist (issue #244).
-    UnsupportedInputToken = 20,
+    UnsupportedInputToken = 21,
     /// Returned by `position_split()` when `split_amount` is not strictly
     /// between 0 and the caller's current position amount (issue #209).
-    InvalidSplitAmount = 21,
+    InvalidSplitAmount = 22,
     /// Returned by `claim_merkle_reward()` when the Merkle proof is invalid.
-    MerkleInvalidProof = 22,
+    MerkleInvalidProof = 23,
     /// Returned by `claim_merkle_reward()` when the user has already claimed
     /// for the given epoch.
-    MerkleAlreadyClaimed = 23,
+    MerkleAlreadyClaimed = 24,
     /// Returned by `create_tournament()` when a tournament is already active.
-    TournamentAlreadyExists = 24,
+    TournamentAlreadyExists = 25,
     /// Returned by `finalize_tournament()` when the tournament has not ended yet.
-    TournamentNotEnded = 25,
+    TournamentNotEnded = 26,
     /// Returned by `finalize_tournament()` when no tournament exists.
-    TournamentNotFound = 26,
+    TournamentNotFound = 27,
     /// Returned by `compare_pools()` when more than 5 external pools are supplied.
-    TooManyPools = 27,
+    /// Returned by `compare_pools()` when more than 5 external pools are supplied.
+    TooManyPools = 28,
     /// Returned by `execute_buyback()` when buyback is not enabled.
-    BuybackNotEnabled = 28,
+    BuybackNotEnabled = 29,
     /// Returned by `execute_buyback()` when accrued fees are below the threshold.
-    BuybackThresholdNotMet = 29,
+    BuybackThresholdNotMet = 30,
     /// Returned by stake/claim rate-limit checks (issue #201).
-    RateLimitExceeded = 30,
+    RateLimitExceeded = 31,
     /// Returned by `start_bootstrap()` when `initial_rate < base_rate`.
-    InvalidBootstrapConfig = 31,
+    InvalidBootstrapConfig = 32,
     /// Returned by delegation chain operations when a cycle is detected (issue #200).
-    CircularDelegation = 32,
+    CircularDelegation = 33,
     /// Returned when a delegation chain would exceed the maximum length (issue #200).
-    ChainTooLong = 33,
+    ChainTooLong = 34,
     /// Returned by `issue_certificate` when the user's stake is below the minimum (issue #222).
-    IneligibleForCertificate = 34,
+    IneligibleForCertificate = 35,
     /// Returned by `set_reward_smoothing()` when the smoothing period exceeds
     /// `MAX_SMOOTHING_PERIOD_LEDGERS`, or when `min_amount` is negative
     /// (issue #235).
-    InvalidSmoothingConfig = 35,
+    InvalidSmoothingConfig = 36,
     /// Returned by `referral_tree_data()` when `max_level` exceeds
     /// `MAX_REFERRAL_TREE_DEPTH` (issue #236).
-    ReferralDepthTooDeep = 36,
+    ReferralDepthTooDeep = 37,
     /// Returned by `start_capacity_auction()` when an auction is already open,
     /// and by `place_bid()` / `finalize_capacity_auction()` when no auction
     /// exists (issue #237).
-    AuctionNotFound = 37,
+    AuctionNotFound = 38,
     /// Returned by `start_capacity_auction()` when `spots` is 0 or above
     /// `MAX_AUCTION_SPOTS`, or `duration_ledgers` is 0 (issue #237).
-    InvalidAuctionConfig = 38,
+    InvalidAuctionConfig = 39,
     /// Returned by `start_capacity_auction()` when the previous auction has not
     /// been finalized yet (issue #237).
-    AuctionAlreadyActive = 39,
+    AuctionAlreadyActive = 40,
     /// Returned by `place_bid()` after the auction window has closed, and by
     /// `place_bid()` / `finalize_capacity_auction()` on an already-finalized
     /// auction (issue #237).
-    AuctionClosed = 40,
+    AuctionClosed = 41,
     /// Returned by `finalize_capacity_auction()` when called before the auction
     /// window has elapsed (issue #237).
-    AuctionNotEnded = 41,
+    AuctionNotEnded = 42,
     /// Returned by `place_bid()` when the resulting bid is below the auction's
     /// `min_bid` (issue #237).
-    BidBelowMinimum = 42,
+    BidBelowMinimum = 43,
     /// Returned by `place_bid()` when the auction already holds
     /// `MAX_AUCTION_BIDS` distinct bidders (issue #237).
-    TooManyBids = 43,
+    TooManyBids = 44,
     /// Returned by `create_lottery()` when an undrawn lottery already exists,
     /// and by `draw_lottery()` when no lottery is configured or it was
     /// already drawn (issue #239).
-    LotteryAlreadyActive = 44,
+    LotteryAlreadyActive = 45,
     /// Returned by `draw_lottery()` when called before `draw_at_ledger`
     /// (issue #239).
-    LotteryNotReady = 45,
+    LotteryNotReady = 46,
     /// Returned by `add_milestone()` when 10 milestones are already
     /// configured (issue #238).
-    TooManyMilestones = 46,
+    TooManyMilestones = 47,
     /// Returned by `check_and_release()` when no oracle contract has been
     /// registered via `set_oracle_contract()` (issue #240).
-    NoOracleConfigured = 47,
+    NoOracleConfigured = 48,
     /// Returned by `veto_proposal()` when the caller's pool share is below
     /// the configured veto threshold, or the veto threshold is unset (0),
     /// which disables the feature entirely (issue #241).
-    BelowVetoThreshold = 48,
+    BelowVetoThreshold = 49,
     /// Returned by `veto_proposal()` when the proposal already has a vetoer,
     /// or has already been enacted and so can no longer be vetoed (issue
     /// #241).
-    AlreadyVetoed = 49,
-    /// Returned by `set_veto_threshold_bps()` when `bps` exceeds 10 000
-    /// (100%) (issue #241). Both error enums are at Soroban's 50-variant cap,
-    /// so this doubles as the generic "basis-points value out of range" code —
-    /// `start_matching_program()` also returns it for a `match_rate_bps` above
-    /// 10 000 (issue #242).
-    InvalidVetoThreshold = 50,
+    AlreadyVetoed = 50,
 }
 
 /// Third error enum, for the same 50-variant reason `VaultExtError` exists:
@@ -331,197 +381,139 @@ pub enum VaultExtError {
 /// below, so `?` still works normally at call sites).
 ///
 /// Note on `InvalidBrandingField`: a `#[contracterror]` variant cannot carry a
-/// payload, so the offending field name is encoded in the variant itself —
+/// payload, so the offending field name is encoded in the variant itself ΓÇö
 /// `InvalidBrandingDisplayName`, `InvalidBrandingLogoHash`,
-/// `InvalidBrandingWebsiteUrl`, `InvalidBrandingTwitterHandle` — rather than
+/// `InvalidBrandingWebsiteUrl`, `InvalidBrandingTwitterHandle` ΓÇö rather than
 /// as an inner `String` on a single generic variant.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum VaultFeatureError {
-    /// Mirrors `VaultError::Unauthorized`.
     Unauthorized = 1,
-    /// Mirrors `VaultError::NotInitialized`.
     NotInitialized = 2,
-    /// Mirrors `VaultError::ZeroAmount`.
     ZeroAmount = 3,
-    /// Mirrors `VaultError::ArithmeticError`.
     ArithmeticError = 4,
-    /// Mirrors `VaultError::PositionNotFound`.
     PositionNotFound = 5,
-    /// Mirrors `VaultError::VaultPaused`.
     VaultPaused = 6,
-    /// Mirrors `VaultError::InsufficientRewardPool`.
     InsufficientRewardPool = 7,
-
-    // ── Issue #258: branding ────────────────────────────────────────────────
-    /// `set_branding()`: `display_name` exceeds `MAX_BRANDING_NAME_LEN` (50).
-    InvalidBrandingDisplayName = 8,
-    /// `set_branding()`: `logo_hash` exceeds `MAX_BRANDING_LOGO_LEN` (64).
-    InvalidBrandingLogoHash = 9,
-    /// `set_branding()`: `website_url` exceeds `MAX_BRANDING_URL_LEN` (200).
-    InvalidBrandingWebsiteUrl = 10,
-    /// `set_branding()`: `twitter_handle` exceeds `MAX_BRANDING_TWITTER_LEN` (16).
-    InvalidBrandingTwitterHandle = 11,
-
-    // ── Issue #259: staking insurance ───────────────────────────────────────
-    /// `set_insurance_product()`: `premium_bps` above 10 000, or
-    /// `max_coverage_per_user` is negative.
-    InvalidInsuranceProduct = 12,
-    /// `purchase_insurance()` before any `set_insurance_product()` call.
-    InsuranceProductNotSet = 13,
-    /// `purchase_insurance()` when the caller already holds an active policy.
-    InsuranceAlreadyActive = 14,
-    /// `cancel_insurance()` / `declare_shortfall()` for a user with no policy.
-    InsurancePolicyNotFound = 15,
-    /// `declare_shortfall()` when the insurance fund cannot cover the total
-    /// coverage owed to `affected_users`.
-    InsuranceFundInsufficient = 16,
-    /// `declare_shortfall()` when `affected_users.len()` exceeds
-    /// `MAX_SHORTFALL_USERS` (50) — split the payout across several calls.
-    TooManyAffectedUsers = 23,
-
-    // ── Issue #275: reward Gini coefficient ─────────────────────────────────
-    /// `get_reward_gini_coefficient()`: more than 100 active stakers. Named
-    /// identically to (but distinct from) `VaultError::TooManyStakers`, which
-    /// is already used for an unrelated case (`vote()` double-voting) — both
-    /// `VaultError` and `VaultExtError` are at their 50-variant cap so this
-    /// domain's own error lives here instead.
-    TooManyStakers = 24,
-
-    // ── Issue #276: seasonal reward multiplier ──────────────────────────────
-    /// `add_season()`: `starts_at >= ends_at`, or `multiplier_bps` is zero.
-    InvalidSeasonConfig = 25,
-    /// `add_season()`: 10 seasons are already scheduled.
-    TooManySeasons = 26,
-    /// `add_season()`: the requested range overlaps an already-scheduled
-    /// season — only one season may be active at a time.
-    SeasonOverlap = 27,
-    /// `remove_season()`: no season exists at the given index.
-    SeasonNotFound = 28,
-
-    // ── Issue #274: staker bio ───────────────────────────────────────────────
-    /// `set_staker_bio()`: `bio` exceeds `MAX_BIO_LEN` (160 characters).
-    BioTooLong = 29,
-
-    // ── Issue #298: pool sunsetting workflow ────────────────────────────────
-    /// Returned by every sunset-workflow entrypoint when called from the
-    /// wrong `SunsetState` (transitions are one-way and only valid from a
-    /// specific prior state), and by `start_force_resolution()` when called
-    /// before the grace period configured in `announce_sunset()` has elapsed.
-    InvalidSunsetTransition = 30,
-    /// `close_pool()`: at least one staker still holds an active position —
-    /// every position must be resolved (via `force_resolve_position()` or a
-    /// voluntary `unstake()`) before the pool can close.
-    PositionsStillActive = 31,
-
-    // ── Issue #260: flash stake ─────────────────────────────────────────────
-    /// `set_flash_stake_fee_bps()`: `bps` above 10 000.
-    InvalidFlashStakeFee = 17,
-
-    // ── Issue #261: stake-backed loans ──────────────────────────────────────
-    /// `set_loan_config()`: `max_ltv_bps` or `interest_rate_bps` above 10 000.
-    InvalidLoanConfig = 18,
-    /// `borrow()` before any `set_loan_config()` call.
-    LoanConfigNotSet = 19,
-    /// `repay()` / `liquidate_loan()` / `get_loan()` flows for a user with no
-    /// outstanding loan.
-    LoanNotFound = 20,
-    /// `borrow()` when the requested amount would push total debt above
-    /// `position.amount * max_ltv_bps / 10000`.
-    ExceedsMaxLtv = 21,
-    /// `liquidate_loan()` when the borrower's LTV is still below
-    /// `LIQUIDATION_LTV_BPS` (9 000).
-    LoanNotLiquidatable = 22,
-
-    // ── Issue #281: Fee Revenue Sharing ──────────────────────────────────────
-    /// `set_revenue_sharing()`: `share_bps` above 10 000.
-    InvalidRevenueShareConfig = 32,
-    /// `claim_revenue_share()`: invalid Merkle proof.
-    RevenueShareInvalidProof = 33,
-    /// `claim_revenue_share()`: user already claimed for this epoch.
-    RevenueShareAlreadyClaimed = 34,
-
-    // ── Issue #282: Stake-Gated Access ───────────────────────────────────────
-    /// `set_access_tier()`: 5 access tiers are already configured.
-    TooManyAccessTiers = 35,
-    /// `claim_access_token()`: user does not qualify for any access tier.
-    IneligibleForAccessTier = 36,
-    /// `revoke_access_token()`: user still qualifies for their current tier.
-    UserStillEligible = 37,
-
-    // ── Issue #315: lot size normalization ──────────────────────────────────
-    /// `stake()`: amount is not a multiple of the configured lot size.
-    InvalidLotSize = 38,
-
-    // ── Issue #308: unstake-fee-funded buyback & burn ───────────────────────
-    /// `execute_fee_buyback()`: `set_fee_buyback_enabled()` has not been
-    /// turned on.
-    FeeBuybackNotEnabled = 39,
-    /// `execute_fee_buyback()`: the reward token differs from the stake
-    /// token and no DEX router has been configured via `set_dex_router()`
-    /// (issue #205) to perform the swap.
-    NoDexRouterConfigured = 40,
-
-    // ── Issue #310: contract allowance delegation ───────────────────────────
-    /// `stake_via_contract()`: the calling contract has no active
-    /// `ContractDelegate` approval from `beneficiary` (never approved, or
-    /// revoked via `revoke_contract_delegate()`).
-    NotAContractDelegate = 41,
-    /// `stake_via_contract()`: `total_used + amount` would exceed the
-    /// delegate's `total_authorized` lifetime cap.
-    ContractDelegateCapExceeded = 42,
-    /// `stake_via_contract()`: `amount` exceeds the delegate's
-    /// `max_stake_per_call` limit.
-    ContractDelegatePerCallExceeded = 43,
-    // ── Issue #286: debt NFT collateral ──────────────────────────────────
-    /// `mint_debt_nft()`: user already has an outstanding debt NFT.
-    PositionCollateralized = 39,
-    /// `mint_debt_nft()`: face_value exceeds the user's staking position.
-    FaceValueExceedsPosition = 40,
-    /// `burn_debt_nft()` / `transfer_debt_nft()` / `get_debt_nft()`: NFT not found.
-    DebtNftNotFound = 41,
-    /// `transfer_debt_nft()`: caller is not the current holder.
-    NotNftHolder = 42,
-
-    // ── Issue #285: cross-pool yield detector ────────────────────────────
-    /// `set_competitor_pools()`: more than 10 competitor addresses.
-    TooManyCompetitors = 43,
-
-    // ── Issue #283: position AMM ──────────────────────────────────────────
-    /// `create_swap_offer()`: caller already has 5 open offers.
-    TooManyOpenOffers = 44,
-    /// `accept_swap_offer()` / `cancel_swap_offer()`: offer id not found.
-    OfferNotFound = 45,
-    /// `accept_swap_offer()`: offer has expired.
-    OfferExpired = 46,
-    /// `accept_swap_offer()`: caller is not the requested counterparty.
-    NotRequestedCounterparty = 47,
-    /// `create_swap_offer()`: requested swap amount exceeds position size.
-    InsufficientAmount = 48,
-
-    // ── Issue #284: reward prediction market ──────────────────────────────
-    /// `open_prediction_market()`: a market is already open.
-    MarketAlreadyOpen = 49,
-    /// `place_bet()`: no market is currently open.
-    NoMarketOpen = 50,
-    /// `place_bet()`: betting window has closed.
-    BettingClosed = 51,
-    /// `resolve_market()`: target ledger has not been reached yet.
-    MarketNotReady = 52,
-    /// `claim_prediction_winnings()`: market not yet resolved.
-    MarketNotResolved = 53,
-    /// `claim_prediction_winnings()`: user already claimed.
-    AlreadyClaimed = 54,
-    /// `place_bet()`: caller is not an active staker.
-    NotActiveStaker = 55,
-
-    // ── Issue #284: used by open_prediction_market validation ──────────────
-    /// `open_prediction_market()`: target_ledger in the past or closes_at >= target_ledger.
-    InvalidRate = 56,
+    InvalidBrandingField = 8,
+    InvalidInsuranceConfig = 9,
+    InsuranceProductNotSet = 10,
+    InsuranceAlreadyActive = 11,
+    InsurancePolicyNotFound = 12,
+    InsuranceFundInsufficient = 13,
+    TooManyAffectedUsers = 14,
+    TooManyStakers = 15,
+    InvalidSeasonConfig = 16,
+    TooManySeasons = 17,
+    SeasonOverlap = 18,
+    SeasonNotFound = 19,
+    BioTooLong = 20,
+    InvalidSunsetTransition = 21,
+    PositionsStillActive = 22,
+    InvalidFlashStakeFee = 23,
+    InvalidLoanConfig = 24,
+    LoanConfigNotSet = 25,
+    LoanNotFound = 26,
+    ExceedsMaxLtv = 27,
+    LoanNotLiquidatable = 28,
+    InvalidRevenueShareConfig = 29,
+    RevenueShareInvalidProof = 30,
+    RevenueShareAlreadyClaimed = 31,
+    TooManyAccessTiers = 32,
+    IneligibleForAccessTier = 33,
+    UserStillEligible = 34,
+    InvalidLotSize = 35,
+    FeeBuybackNotEnabled = 36,
+    NoDexRouterConfigured = 37,
+    NotAContractDelegate = 38,
+    ContractDelegateCapExceeded = 39,
+    ContractDelegatePerCallExceeded = 40,
+    PositionCollateralized = 41,
+    FaceValueExceedsPosition = 42,
+    DebtNftNotFound = 43,
+    NotNftHolder = 44,
+    TooManyCompetitors = 45,
+    TooManyOpenOffers = 46,
+    OfferNotFound = 47,
+    OfferExpired = 48,
+    NotRequestedCounterparty = 49,
+    InsufficientAmount = 50,
 }
 
+// Fourth error enum for overflow errors beyond the Soroban 50-variant cap.
+// VaultFeatureError exceeded the cap; new errors go here.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultOverflowError {
+    Unauthorized = 1,
+    NotInitialized = 2,
+    ZeroAmount = 3,
+    ArithmeticError = 4,
+    PositionNotFound = 5,
+    VaultPaused = 6,
+    InsufficientRewardPool = 7,
+    InvalidBrandingDisplayName = 8,
+    InvalidBrandingLogoHash = 9,
+    InvalidBrandingWebsiteUrl = 10,
+    InvalidBrandingTwitterHandle = 11,
+    InvalidInsuranceProduct = 12,
+    InsuranceProductNotSet = 13,
+    InsuranceAlreadyActive = 14,
+    InsurancePolicyNotFound = 15,
+    InsuranceFundInsufficient = 16,
+    TooManyAffectedUsers = 17,
+    TooManyStakers = 18,
+    InvalidSeasonConfig = 19,
+    TooManySeasons = 20,
+    SeasonOverlap = 21,
+    SeasonNotFound = 22,
+    BioTooLong = 23,
+    InvalidSunsetTransition = 24,
+    PositionsStillActive = 25,
+    InvalidFlashStakeFee = 26,
+    InvalidLoanConfig = 27,
+    LoanConfigNotSet = 28,
+    LoanNotFound = 29,
+    ExceedsMaxLtv = 30,
+    LoanNotLiquidatable = 31,
+    InvalidRevenueShareConfig = 32,
+    RevenueShareInvalidProof = 33,
+    RevenueShareAlreadyClaimed = 34,
+    TooManyAccessTiers = 35,
+    IneligibleForAccessTier = 36,
+    UserStillEligible = 37,
+    InvalidLotSize = 38,
+    FeeBuybackNotEnabled = 39,
+    NoDexRouterConfigured = 40,
+    NotAContractDelegate = 41,
+    ContractDelegateCapExceeded = 42,
+    ContractDelegatePerCallExceeded = 43,
+    PositionCollateralized = 44,
+    FaceValueExceedsPosition = 45,
+    DebtNftNotFound = 46,
+    NotNftHolder = 47,
+    TooManyCompetitors = 48,
+    TooManyOpenOffers = 49,
+    /// Returned by staking entrypoints when the stake amount is insufficient.
+    InsufficientStake = 50,
+}
 
+impl From<VaultError> for VaultOverflowError {
+    fn from(e: VaultError) -> Self {
+        match e {
+            VaultError::Unauthorized => VaultOverflowError::Unauthorized,
+            VaultError::NotInitialized => VaultOverflowError::NotInitialized,
+            VaultError::ZeroAmount => VaultOverflowError::ZeroAmount,
+            VaultError::ArithmeticError => VaultOverflowError::ArithmeticError,
+            VaultError::PositionNotFound => VaultOverflowError::PositionNotFound,
+            VaultError::VaultPaused => VaultOverflowError::VaultPaused,
+            VaultError::InsufficientRewardPool => VaultOverflowError::InsufficientRewardPool,
+            _ => VaultOverflowError::Unauthorized,
+        }
+    }
+}
 
 impl From<VaultError> for VaultExtError {
     fn from(err: VaultError) -> Self {
@@ -530,6 +522,7 @@ impl From<VaultError> for VaultExtError {
             VaultError::NotInitialized => VaultExtError::NotInitialized,
             VaultError::ZeroAmount => VaultExtError::ZeroAmount,
             VaultError::ArithmeticError => VaultExtError::ArithmeticError,
+            VaultError::PositionNotFound => VaultExtError::PositionNotFound,
             // Any other VaultError reaching here (shouldn't happen given how
             // these functions are written) maps to the closest generic case.
             _ => VaultExtError::Unauthorized,
@@ -552,4 +545,556 @@ impl From<VaultError> for VaultFeatureError {
             _ => VaultFeatureError::Unauthorized,
         }
     }
+}
+
+/// Fifth error enum for issue #391 (stake_to_learn). Both `VaultError`,
+/// `VaultExtError`, `VaultFeatureError`, and `VaultOverflowError` are at
+/// Soroban's 50-variant cap, so quiz-specific errors live here.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultQuizError {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Mirrors `VaultError::ZeroAmount`.
+    ZeroAmount = 3,
+    /// Mirrors `VaultError::ArithmeticError`.
+    ArithmeticError = 4,
+    /// Mirrors `VaultError::VaultPaused`.
+    VaultPaused = 5,
+    /// Returned by `submit_quiz_answer()` when the given `quiz_id` does not
+    /// correspond to any stored quiz.
+    QuizNotFound = 6,
+    /// Returned by `submit_quiz_answer()` when the user has already
+    /// successfully completed this quiz.
+    QuizAlreadyCompleted = 7,
+    /// Returned by `submit_quiz_answer()` when the user has exhausted all
+    /// allowed attempts for this quiz.
+    QuizMaxAttemptsReached = 8,
+    /// Returned by `add_quiz()` when the contract already holds the maximum
+    /// of 20 quizzes.
+    TooManyQuizzes = 9,
+    /// Returned by `submit_daily_tip()` (issue #458) when `content` exceeds
+    /// `MAX_TIP_CONTENT_LEN` characters.
+    TipTooLong = 10,
+    /// Returned by `submit_daily_tip()` (issue #458) when the caller has
+    /// already submitted a tip for the current day.
+    AlreadySubmittedToday = 11,
+    /// Returned by `submit_daily_tip()` (issue #458) when the current day
+    /// already holds `MAX_TIPS_PER_DAY` candidates.
+    TooManyTipsToday = 12,
+    /// Returned by `vote_daily_tip()` (issue #458) when the given `tip_id`
+    /// does not correspond to a candidate submitted for the current day, and
+    /// by `finalize_daily_tip()` when the given day has no candidates.
+    TipNotFound = 13,
+    /// Returned by `vote_daily_tip()` (issue #458) when the caller has
+    /// already voted on a tip for the current day.
+    AlreadyVotedToday = 14,
+    /// Returned by `cancel_config_change()` / `execute_config_change()` /
+    /// `get_admin_proposal()` (issue #455) when the given `proposal_id` does
+    /// not exist.
+    AdminProposalNotFound = 15,
+    /// Returned by `cancel_config_change()` / `execute_config_change()`
+    /// (issue #455) when the proposal was already cancelled.
+    AdminProposalAlreadyCancelled = 16,
+    /// Returned by `cancel_config_change()` / `execute_config_change()`
+    /// (issue #455) when the proposal was already executed.
+    AdminProposalAlreadyExecuted = 17,
+    /// Returned by `execute_config_change()` (issue #455) when called
+    /// before the proposal's `executes_at` ledger has been reached.
+    AdminProposalNotYetExecutable = 18,
+}
+
+impl From<VaultError> for VaultQuizError {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultQuizError::Unauthorized,
+            VaultError::NotInitialized => VaultQuizError::NotInitialized,
+            VaultError::ZeroAmount => VaultQuizError::ZeroAmount,
+            VaultError::ArithmeticError => VaultQuizError::ArithmeticError,
+            VaultError::VaultPaused => VaultQuizError::VaultPaused,
+            _ => VaultQuizError::Unauthorized,
+        }
+    }
+}
+
+/// Sixth error enum, added for the same 50-variant reason the earlier
+/// `Vault*Error` enums exist: every prior `#[contracterror]` enum is already at
+/// Soroban's cap. Holds the cases introduced by issues #459 (position health
+/// auto-recovery), #460 (lockdrop campaign), #461 (proof-of-humanity hook), and
+/// #462 (roadmap voting), plus mirrors of the handful of `VaultError` cases
+/// those functions can also hit (via the `From` impl below, so `?` keeps
+/// working at call sites that mix the two).
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultCampaignError {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Mirrors `VaultError::ZeroAmount`.
+    ZeroAmount = 3,
+    /// Mirrors `VaultError::ArithmeticError`.
+    ArithmeticError = 4,
+    /// Mirrors `VaultError::PositionNotFound`.
+    PositionNotFound = 5,
+    /// Mirrors `VaultError::VaultPaused`.
+    VaultPaused = 6,
+
+    // ── Issue #459: position health auto-recovery ────────────────────────────
+    /// Returned by `check_and_recover()` / `cancel_recovery_config()` when the
+    /// user has no active recovery configuration.
+    RecoveryNotConfigured = 7,
+    /// Returned by `check_and_recover()` when the user's current position
+    /// health is at or above their configured trigger threshold (or the
+    /// position carries no loan, so health is unbounded).
+    RecoveryNotTriggered = 8,
+    /// Returned by `check_and_recover()` when the per-user daily cooldown has
+    /// not elapsed since the last recovery.
+    RecoveryOnCooldown = 9,
+    /// Returned by `set_recovery_config()` when `trigger_health_bps` is 0, or
+    /// `action_amount` is not positive for an action that needs one.
+    InvalidRecoveryConfig = 10,
+    /// Returned by `check_and_recover()` when an `AutoRepayLoan` action is
+    /// configured but the user has no outstanding loan.
+    NoActiveLoan = 11,
+
+    // ── Issue #460: lockdrop campaign ───────────────────────────────────────
+    /// Returned by `start_lockdrop()` when a campaign that has not been
+    /// finalized already exists.
+    LockdropAlreadyActive = 12,
+    /// Returned by lockdrop entrypoints when no campaign has been started.
+    LockdropNotActive = 13,
+    /// Returned by `commit_to_lockdrop()` after the commitment window
+    /// (`ends_at`) has passed.
+    LockdropEnded = 14,
+    /// Returned by `finalize_lockdrop()` before `ends_at`.
+    LockdropNotEnded = 15,
+    /// Returned by `claim_lockdrop_reward()` before the campaign is finalized.
+    LockdropNotFinalized = 16,
+    /// Returned by `finalize_lockdrop()` when the campaign is already finalized.
+    LockdropAlreadyFinalized = 17,
+    /// Returned by `commit_to_lockdrop()` when the caller already has a
+    /// commitment in the active campaign.
+    AlreadyCommitted = 18,
+    /// Returned by `exit_lockdrop()` / `claim_lockdrop_reward()` when the
+    /// caller has no commitment.
+    CommitmentNotFound = 19,
+    /// Returned by `exit_lockdrop()` before the caller's chosen lock duration
+    /// has elapsed.
+    LockStillActive = 20,
+    /// Returned by `claim_lockdrop_reward()` when the caller already claimed.
+    AlreadyClaimed = 21,
+    /// Returned by `claim_lockdrop_reward()` when the caller's proportional
+    /// allocation is zero.
+    NothingToClaim = 22,
+    /// Returned by `commit_to_lockdrop()` when the campaign already holds the
+    /// maximum supported number of committers.
+    LockdropFull = 23,
+    /// Returned by `commit_to_lockdrop()` when `lock_duration_ledgers` is 0 or
+    /// exceeds the campaign's `max_lock_ledgers`.
+    InvalidLockDuration = 24,
+
+    // ── Issue #461: proof-of-humanity hook ─────────────────────────────────
+    /// Returned by `stake_verified()` when no humanity oracle / config has
+    /// been registered.
+    OracleNotConfigured = 25,
+    /// Returned by `stake_verified()` when the staked amount is below the
+    /// minimum that applies to the caller's verification status.
+    BelowHumanityMinStake = 26,
+    /// Returned by `set_humanity_config()` when a bps field is out of range.
+    InvalidHumanityConfig = 27,
+
+    // ── Issue #462: roadmap voting ────────────────────────────────────────
+    /// Returned by `add_roadmap_item()` when 20 items already exist.
+    TooManyRoadmapItems = 28,
+    /// Returned by `remove_roadmap_item()` / `vote_roadmap_item()` for an
+    /// unknown item id.
+    RoadmapItemNotFound = 29,
+    /// Returned by `add_roadmap_item()` when the title exceeds 80 characters.
+    TitleTooLong = 30,
+    /// Returned by `vote_roadmap_item()` when the caller's allocations for the
+    /// current epoch would exceed the 100-point budget.
+    VoteBudgetExceeded = 31,
+    /// Returned by `vote_roadmap_item()` when `weight` alone exceeds 100.
+    InvalidVoteWeight = 32,
+
+    // ── Issue #430: staker region tags ───────────────────────────────────
+    /// Returned by `set_region_tag()` when the code exceeds 10 characters.
+    RegionCodeTooLong = 33,
+    /// Returned by `set_region_tag()` when the code is empty or contains a
+    /// non-alphanumeric character.
+    InvalidRegionCode = 34,
+    /// Returned by `set_region_tag()` when a new tag would exceed
+    /// `MAX_REGION_TAGGED_STAKERS`.
+    TooManyRegionTags = 35,
+}
+
+impl From<VaultError> for VaultCampaignError {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultCampaignError::Unauthorized,
+            VaultError::NotInitialized => VaultCampaignError::NotInitialized,
+            VaultError::ZeroAmount => VaultCampaignError::ZeroAmount,
+            VaultError::ArithmeticError => VaultCampaignError::ArithmeticError,
+            VaultError::PositionNotFound => VaultCampaignError::PositionNotFound,
+            VaultError::VaultPaused => VaultCampaignError::VaultPaused,
+            // Any other VaultError reaching here maps to the closest generic case.
+            _ => VaultCampaignError::Unauthorized,
+        }
+    }
+}
+
+/// Seventh error enum, added for the same 50-variant reason the earlier
+/// `Vault*Error` enums exist: every prior `#[contracterror]` enum is at
+/// Soroban's cap. Holds the cases for the pool-insights / runway-guard /
+/// admin-recovery issue batch, plus mirrors of the `VaultError` cases those
+/// functions can hit (via the `From` impl below, so `?` still works).
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultOpsError {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Mirrors `VaultError::ZeroAmount`.
+    ZeroAmount = 3,
+    /// Mirrors `VaultError::ArithmeticError`.
+    ArithmeticError = 4,
+    /// Mirrors `VaultError::RateTooHigh` — a reward rate above
+    /// `balance::MAX_RATE_BPS` was supplied.
+    RateTooHigh = 5,
+    /// Returned by `set_reward_rate_bps` when the new rate would exhaust the
+    /// reward pool before the configured minimum runway
+    /// (`set_min_runway_ledgers`).
+    InsufficientRunway = 6,
+    /// Returned by `set_min_runway_ledgers` when `ledgers` is non-zero but
+    /// below the supported floor.
+    InvalidRunway = 7,
+    /// Returned by `propose_admin_recovery` when a recovery proposal is
+    /// already active.
+    RecoveryAlreadyPending = 8,
+    /// Returned by `execute_admin_recovery` / `cancel_admin_recovery` when no
+    /// recovery proposal is active.
+    RecoveryNotPending = 9,
+    /// Returned by `execute_admin_recovery` before the recovery delay has
+    /// elapsed.
+    RecoveryDelayNotElapsed = 10,
+    /// Returned by `propose_admin_recovery` when `new_admin` equals the
+    /// current admin.
+    InvalidRecoveryConfig = 11,
+    /// Returned by `set_reward_rate_bps` while the algorithmic reward rate
+    /// is enabled (issue #510) — the rate is derived from utilization.
+    DynamicRateActive = 12,
+    /// Returned by `fund_reward_pool` when `amount` is below the configured
+    /// minimum (issue #549). Disabled when the minimum is 0.
+    FundingBelowMinimum = 13,
+}
+
+impl From<VaultError> for VaultOpsError {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultOpsError::Unauthorized,
+            VaultError::NotInitialized => VaultOpsError::NotInitialized,
+            VaultError::ZeroAmount => VaultOpsError::ZeroAmount,
+            VaultError::ArithmeticError => VaultOpsError::ArithmeticError,
+            VaultError::RateTooHigh => VaultOpsError::RateTooHigh,
+            // Any other VaultError reaching here maps to the closest generic case.
+            _ => VaultOpsError::Unauthorized,
+        }
+    }
+}
+
+/// Eighth error enum for issues #526-#529 (scheduled exit, snapshot airdrop,
+/// external price oracle, co-sponsor). All prior `#[contracterror]` enums
+/// are at Soroban's 50-variant cap.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultFeature2Error {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Mirrors `VaultError::ZeroAmount`.
+    ZeroAmount = 3,
+    /// Mirrors `VaultError::ArithmeticError`.
+    ArithmeticError = 4,
+    /// Mirrors `VaultError::PositionNotFound`.
+    PositionNotFound = 5,
+    /// Mirrors `VaultError::VaultPaused`.
+    VaultPaused = 6,
+    /// Mirrors `VaultError::InsufficientRewardPool`.
+    InsufficientRewardPool = 7,
+    /// Returned by `create_airdrop()` / `execute_scheduled_exit()` when the
+    /// supplied ledger or config is invalid.
+    InvalidRecoveryConfig = 8,
+    /// Returned by `register_co_sponsor()` when the sponsor is already
+    /// registered and active.
+    AlreadyRegistered = 9,
+    /// Returned by `fund_co_sponsor_rewards()` when the sponsor's
+    /// registration has expired.
+    SponsorExpired = 10,
+    /// Returned by `claim_airdrop()` when the user already claimed.
+    AlreadyClaimed = 11,
+    /// Returned by `get_position_value_usd()` when no oracle is configured.
+    NoOracleConfigured = 12,
+    /// Returned by `claim_airdrop()` when the user has no weight at the
+    /// snapshot ledger.
+    InsufficientStake = 13,
+}
+
+/// Ninth error enum, for issues #519 (vote-weight delegation) and #520
+/// (tiered fee discounts). All eight prior `#[contracterror]` enums are at
+/// Soroban's 50-variant cap. Issues #518 (`transfer_position`) and #521
+/// (guardian pause) don't need new cases here — every error they can return
+/// already exists on `VaultError` itself (`PositionNotFound`,
+/// `RecipientAlreadyStaking`, `Unauthorized`, `ContractStopped`, etc.), so
+/// those two entrypoints just return `VaultError` directly.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultFeature3Error {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Mirrors `VaultError::ZeroAmount`.
+    ZeroAmount = 3,
+    /// Mirrors `VaultError::ArithmeticError`.
+    ArithmeticError = 4,
+    /// Mirrors `VaultError::PositionNotFound`.
+    PositionNotFound = 5,
+    /// Mirrors `VaultError::InsufficientShares`.
+    InsufficientShares = 6,
+    /// Returned by `set_fee_tiers()` (issue #520) when more than
+    /// `MAX_FEE_TIERS` tiers are supplied.
+    TooManyFeeTiers = 7,
+    /// Returned by `set_fee_tiers()` (issue #520) when a tier's
+    /// `discount_bps` exceeds 10 000 (100%) or `min_position_amount` is
+    /// negative.
+    InvalidFeeTierConfig = 8,
+    /// Returned by `delegate_vote_weight()` (issue #519) when a user tries
+    /// to delegate to themselves.
+    SelfDelegationNotAllowed = 9,
+    /// Returned by `delegate_vote_weight()` (issue #519) when the target
+    /// delegate already has `MAX_DELEGATORS_PER_DELEGATE` delegators.
+    TooManyDelegators = 10,
+    /// Returned by `revoke_vote_delegation()` (issue #519) when the caller
+    /// has no active delegation to revoke.
+    NoDelegationSet = 11,
+}
+
+impl From<VaultError> for VaultFeature3Error {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultFeature3Error::Unauthorized,
+            VaultError::NotInitialized => VaultFeature3Error::NotInitialized,
+            VaultError::ZeroAmount => VaultFeature3Error::ZeroAmount,
+            VaultError::ArithmeticError => VaultFeature3Error::ArithmeticError,
+            VaultError::PositionNotFound => VaultFeature3Error::PositionNotFound,
+            VaultError::InsufficientShares => VaultFeature3Error::InsufficientShares,
+            _ => VaultFeature3Error::Unauthorized,
+        }
+    }
+}
+
+impl From<VaultError> for VaultFeature2Error {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultFeature2Error::Unauthorized,
+            VaultError::NotInitialized => VaultFeature2Error::NotInitialized,
+            VaultError::ZeroAmount => VaultFeature2Error::ZeroAmount,
+            VaultError::ArithmeticError => VaultFeature2Error::ArithmeticError,
+            VaultError::PositionNotFound => VaultFeature2Error::PositionNotFound,
+            VaultError::VaultPaused => VaultFeature2Error::VaultPaused,
+            VaultError::InsufficientRewardPool => VaultFeature2Error::InsufficientRewardPool,
+            _ => VaultFeature2Error::Unauthorized,
+        }
+    }
+}
+
+/// Tenth error enum for issues #530-#533 (activity log, invariant checker,
+/// reward-rate ceiling, pause grace period).
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultFeature4Error {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Returned by `force_unpause()` when the vault is not paused.
+    NotPaused = 3,
+    /// Returned by `force_unpause()` before the maximum pause duration has
+    /// elapsed.
+    GracePeriodNotElapsed = 4,
+    /// Returned by `set_max_pause_duration()` while the vault is paused, or
+    /// when the supplied duration is below `MIN_MAX_PAUSE_LEDGERS`.
+    InvalidPauseDuration = 5,
+    /// Returned by `set_max_reward_rate()` when the new ceiling is zero,
+    /// higher than the current ceiling, or below the current reward rate.
+    InvalidRateCeiling = 6,
+    /// Returned by `assert_invariants()` when a core accounting total
+    /// (shares, deposits, reward pool) is negative.
+    NegativeAccounting = 7,
+    /// Returned by `assert_invariants()` when the sum of all stakers' share
+    /// balances differs from total shares outstanding.
+    SharesMismatch = 8,
+    /// Returned by `assert_invariants()` when the vault's actual token
+    /// balance is below what its accounting says it holds.
+    Undercollateralized = 9,
+}
+
+impl From<VaultError> for VaultFeature4Error {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultFeature4Error::Unauthorized,
+            VaultError::NotInitialized => VaultFeature4Error::NotInitialized,
+            _ => VaultFeature4Error::Unauthorized,
+        }
+    }
+}
+
+/// Error enum for issue #513 (role-based access control) and issue #510
+/// (utilization-driven dynamic reward rate). All ten prior `#[contracterror]`
+/// enums are either at Soroban's 50-variant cap or scoped to another feature
+/// batch, so the access-control cases live here.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultAccessError {
+    /// Mirrors `VaultError::Unauthorized` — the caller is not the admin and
+    /// does not hold the required role.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Returned by `require_role()` when the caller is neither the admin nor
+    /// an explicit grantee of the required `Role` (issue #513).
+    MissingRole = 3,
+    /// Mirrors `VaultError::UnstakeFeeTooHigh` — returned by
+    /// `role_set_unstake_fee_bps()` when the fee exceeds 500 bps.
+    UnstakeFeeTooHigh = 4,
+    /// Mirrors `VaultError::RateTooHigh`.
+    RateTooHigh = 5,
+    /// Returned by `set_dynamic_rate_config()` when the curve is invalid:
+    /// `target_tvl <= 0`, or `min_rate_bps > target_rate_bps`, or
+    /// `target_rate_bps > max_rate_bps` (issue #510).
+    InvalidDynamicRateConfig = 6,
+    /// Mirrors `VaultOpsError::InsufficientRunway`, surfaced through the
+    /// role-gated rate setter.
+    InsufficientRunway = 7,
+    /// Mirrors `VaultOpsError::DynamicRateActive`, surfaced through the
+    /// role-gated rate setter.
+    DynamicRateActive = 8,
+}
+
+impl From<VaultError> for VaultAccessError {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultAccessError::Unauthorized,
+            VaultError::NotInitialized => VaultAccessError::NotInitialized,
+            VaultError::RateTooHigh => VaultAccessError::RateTooHigh,
+            VaultError::UnstakeFeeTooHigh => VaultAccessError::UnstakeFeeTooHigh,
+            _ => VaultAccessError::Unauthorized,
+        }
+    }
+}
+
+impl From<VaultOpsError> for VaultAccessError {
+    fn from(err: VaultOpsError) -> Self {
+        match err {
+            VaultOpsError::Unauthorized => VaultAccessError::Unauthorized,
+            VaultOpsError::NotInitialized => VaultAccessError::NotInitialized,
+            VaultOpsError::RateTooHigh => VaultAccessError::RateTooHigh,
+            VaultOpsError::InsufficientRunway => VaultAccessError::InsufficientRunway,
+            VaultOpsError::DynamicRateActive => VaultAccessError::DynamicRateActive,
+            _ => VaultAccessError::Unauthorized,
+        }
+    }
+}
+
+/// Twelfth error enum, added for issue #593: replaces the last ad-hoc string
+/// `panic!`s in the issue #498–#505 extension modules with typed, matchable
+/// error codes. Every prior `#[contracterror]` enum is either at Soroban's
+/// 50-variant cap or scoped to another feature batch. The variant names keep
+/// the exact wording of the string panics they replace so integrators can map
+/// old revert messages to stable numeric codes one-to-one.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultFeature5Error {
+    /// Mirrors `VaultError::Unauthorized`.
+    Unauthorized = 1,
+    /// Mirrors `VaultError::NotInitialized`.
+    NotInitialized = 2,
+    /// Replaces `panic!("InvalidSplitRecipients")` — returned by
+    /// `set_treasury_split()` when more than 3 recipients are supplied or the
+    /// `recipients` / `bps_shares` lengths differ (issue #499).
+    InvalidSplitRecipients = 3,
+    /// Replaces `panic!("InvalidSplitBpsSum")` — returned by
+    /// `set_treasury_split()` when the `bps_shares` values do not sum to
+    /// exactly 10 000 (issue #499).
+    InvalidSplitBpsSum = 4,
+    /// Replaces `panic!("UnregisteredToken")` — returned by
+    /// `swap_secondary_reward()` when no DEX router is registered for the
+    /// supplied source token (issue #501).
+    UnregisteredToken = 5,
+    /// Replaces `panic!("TimelockNotExpired")` — returned by
+    /// `execute_admin_action()` when the queued action's `executable_at`
+    /// ledger has not been reached yet (issue #503).
+    TimelockNotExpired = 6,
+    /// Replaces `panic!("ActionNotFound")` — returned by
+    /// `execute_admin_action()` / `cancel_admin_action()` when the given
+    /// action id does not exist (issue #503).
+    ActionNotFound = 7,
+    /// Replaces `panic!("AutoCompoundNotEnabled")` — returned by `compound()`
+    /// when the user has not opted into auto-compounding (issue #504).
+    AutoCompoundNotEnabled = 8,
+    /// Replaces `panic!("NoSharesToTokenize")` — returned by
+    /// `tokenize_position()` when the caller holds no shares (issue #505).
+    NoSharesToTokenize = 9,
+    /// Replaces `panic!("NotNFTOwner")` — returned by `redeem_position_nft()`
+    /// when the caller is not the recorded owner of the token id (issue #505).
+    NotNftOwner = 10,
+}
+
+impl From<VaultError> for VaultFeature5Error {
+    fn from(err: VaultError) -> Self {
+        match err {
+            VaultError::Unauthorized => VaultFeature5Error::Unauthorized,
+            VaultError::NotInitialized => VaultFeature5Error::NotInitialized,
+            _ => VaultFeature5Error::Unauthorized,
+        }
+    }
+}
+
+/// Issue #621: negative-balance impossibility backstop.
+///
+/// `VaultError`, `VaultExtError`, and `VaultFeatureError` are all already at
+/// Soroban's 50-variant cap for `#[contracterror]` enums (see the note on
+/// `DataKey` in `storage.rs`), so this gets its own enum rather than adding a
+/// variant to one of those, matching the established pattern for handling an
+/// exhausted error enum (e.g. `VaultFeature2Error`..`VaultFeature5Error`).
+///
+/// Every balance-decrementing call site (withdraw, fee deduction, penalty,
+/// slash, etc.) is expected to validate the requested amount against the
+/// caller's current balance up front and return its own typed error (e.g.
+/// `VaultError::InsufficientShares`) before ever reaching a `balance::set_*`
+/// helper with a value that would go negative. `balance::assert_non_negative`
+/// (see `balance.rs`) is the last line of defense in those setters: it fires
+/// only if that upstream check was missing or wrong, aborting the transaction
+/// and reverting all state changes so no negative balance is ever committed
+/// to storage.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum VaultInvariantError {
+    /// A `balance::set_*` accounting field would have been written as
+    /// negative; the write was rejected and the call reverted instead.
+    NegativeBalance = 1,
 }

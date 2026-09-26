@@ -79,6 +79,15 @@ pub enum DataKey {
     // Symbol::new(env, "prop")/"voted" tuple keys above).
 }
 
+/// Pool-wide share price at a particular ledger (issue #494).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SharePriceSnapshot {
+    pub price_numerator: i128,
+    pub price_denominator: i128,
+    pub ledger: u32,
+}
+
 /// Storage key for an individual epoch snapshot.
 ///
 /// Soroban's enum contracttype support is stricter for tuple variants, so we
@@ -139,6 +148,13 @@ pub struct PoolStats {
     pub total_rewards_paid: i128,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct RewardTier {
+    pub max_amount: i128,
+    pub rate_bps: i128,
+}
+
 /// Aggregate user stats used by `user_stats`.
 ///
 /// - `position_amount`: the user's current position size expressed in token units.
@@ -152,6 +168,36 @@ pub struct UserStats {
     pub pending_reward: i128,
     pub staked_at_ledger: u32,
     pub last_claim_ledger: u32,
+}
+
+/// Matching program configuration (issue #242).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct MatchingProgram {
+    pub match_rate_bps: u32,
+    pub per_user_cap: i128,
+    pub total_budget: i128,
+    pub budget_used: i128,
+    pub active: bool,
+}
+
+/// Per-user matching stats (issue #242).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct UserMatchingStats {
+    pub total_matched: i128,
+}
+
+/// Cohort statistics for weekly staker cohorts.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct CohortStats {
+    pub cohort_id: u32,
+    pub member_count: u32,
+    pub total_staked: i128,
+    pub avg_position: i128,
+    pub total_rewards_claimed: i128,
+    pub active_members: u32,
 }
 
 /// Active boost campaign set by admin (#48).
@@ -272,6 +318,18 @@ pub struct ChangelogEntry {
     pub new_value: i128,
 }
 
+/// One entry in the on-chain reward-rate changelog exposed by
+/// `get_rate_history` (issue #522).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateChange {
+    pub old_rate_bps: u32,
+    pub new_rate_bps: u32,
+    /// Ledger sequence number of the update, matching the timestamp carried by
+    /// the `rate_changed` event.
+    pub changed_at: u32,
+}
+
 /// One entry in the rich reward-rate history exposed by `get_reward_rate_history` (issue #124).
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -323,6 +381,23 @@ pub struct PoolHealthReport {
     pub uptime_ledgers: u32,
     pub estimated_daily_obligations: i128,
     pub is_solvent_7_days: bool,
+}
+
+/// Admin-only operational snapshot for monitoring and alerting dashboards.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct OperatorDashboard {
+    pub pool_health: PoolHealthReport,
+    pub staker_count: u32,
+    pub inactive_staker_count: u32,
+    pub pending_exit_queue_count: u32,
+    pub total_ever_staked: i128,
+    pub total_ever_claimed: i128,
+    pub largest_position: i128,
+    pub smallest_active_position: i128,
+    pub sunset_state: SunsetState,
+    pub open_governance_proposals: u32,
+    pub reward_token_runway_days: u32,
 }
 
 /// Effective reward rate breakdown returned by `reward_multiplier_preview` (issue #181).
@@ -1140,6 +1215,164 @@ pub struct WithdrawalReceipt {
 }
 
 /// Tracks completion of recommended onboarding steps for a staker.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ── Issue #105: stake/unstake history ────────────────────────────────────────
+
+
+
+// ── Issue #104: interface detection ──────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+// ── Issue #219: pause reason ─────────────────────────────────────────────────
+
+
+
+// ── Issue #217: tax reporting ────────────────────────────────────────────────
+
+
+// ── Issue #220: rounding policy ──────────────────────────────────────────────
+
+
+// ── Issue #216: governance voting ────────────────────────────────────────────
+
+
+
+// ── Issue #207: cross-chain bridge relayer hook ──────────────────────────────
+
+
+// ── Issue #197: fee splitting ─────────────────────────────────────────────────
+
+
+// ── Issue #195: timelocked admin actions ─────────────────────────────────────
+
+
+// ── Issue #196: multi-sig admin ──────────────────────────────────────────────
+
+
+
+// ── Missing types for existing feature branches ──────────────────────────────
+
+
+
+
+
+// ── Issue #210: Merkle Reward Distribution ────────────────────────────────────
+
+
+// ── Issue #231: Halving Schedule ──────────────────────────────────────────────
+
+
+// ── Issue #222: Staking Certificate ───────────────────────────────────────────
+
+
+// ── Issue #211: Staking Tournament Competition ─────────────────────────────────
+
+
+// ── Issue #221: Cross-Pool Reward Comparison ──────────────────────────────────
+
+
+// ── Issue #235: Reward Smoothing ──────────────────────────────────────────────
+
+
+
+// ── Issue #236: Referral Tree Visualization ───────────────────────────────────
+
+
+// ── Issue #237: Capacity Auction ──────────────────────────────────────────────
+
+
+
+// ── Issue #239: stake-weighted lottery ────────────────────────────────────────
+
+
+// ── Issue #238: loyalty milestone badges ──────────────────────────────────────
+
+
+
+// ── Issue #240: oracle-triggered lock-up release ──────────────────────────────
+
+
+
+// ── Issue #250: optimal claim frequency advisory ───────────────────────────────
+
+
+// ── Issue #257: auto-convert reward on claim ────────────────────────────────────
+
+
+// ── Issue #251: exit-queue priority bidding ─────────────────────────────────────
+
+
+// ── Issue #258: pool whitelabel branding ────────────────────────────────────────
+
+
+// ── Issue #259: staking insurance (principal protection) ────────────────────────
+
+
+
+// ── Issue #260: flash stake ─────────────────────────────────────────────────────
+
+
+// ── Issue #261: stake-backed loans ──────────────────────────────────────────────
+
+
+
+// ── Issue #276: seasonal reward multiplier ────────────────────────────────────
+
+
+// ── Issue #298: pool sunsetting workflow ──────────────────────────────────────
+
+
+// ── Issue #281: Fee Revenue Sharing ──────────────────────────────────────────
+
+
+
+// ── Issue #282: Stake-Gated Access ───────────────────────────────────────────
+
+
+// ── Issue #314: withdrawal receipt ───────────────────────────────────────────
+
+
+// ── Issue #309: staker onboarding checklist ───────────────────────────────────
+
+/// Tracks completion of the recommended onboarding steps for a staker (issue
+/// #309). Append-only: flags never reset to false even after the user
+/// unstakes. `completed_at` is set once, to the ledger at which the last
+/// remaining flag first flipped true.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct OnboardingChecklist {
@@ -1160,3 +1393,98 @@ pub struct ContractDelegate {
     pub total_authorized: i128,
     pub total_used: i128,
 }
+
+// ── Issue #392: loyalty points system ───────────────────────────────────────
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PointsAction {
+    PerLedgerStaked,
+    PerClaim,
+    PerGovernanceVote,
+    PerMilestone,
+    PerReferral,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PointsRule {
+    pub action: PointsAction,
+    pub points_per_action: u32,
+}
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PointsBenefit {
+    FeeWaiver,
+    BoostUnlock,
+    EarlyAccess,
+}
+
+/// Quiz structure for stake_to_learn feature (issue #391).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Quiz {
+    pub id: u32,
+    pub question_hash: soroban_sdk::Bytes,
+    pub answer_hash: soroban_sdk::Bytes,
+    pub reward_tier_unlocked: u32,
+    pub attempts_allowed: u32,
+}
+
+// ── Issue #377: position health alert ────────────────────────────────────────
+
+/// Result of `position_health_alert()`: a unified check across every
+/// attention-worthy condition a staker's position can be in (issue #377).
+///
+/// Each `Option` field is `None` when that condition doesn't apply to the
+/// position (e.g. no lock period configured, or no outstanding loan) rather
+/// than a false alarm. `needs_attention` is the OR of the four boolean flags,
+/// so a frontend can branch on it alone without inspecting every field.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PositionHealthAlert {
+    pub user: Address,
+    pub needs_attention: bool,
+    pub approaching_expiry: bool,
+    pub ledgers_until_expiry: Option<u32>,
+    pub lock_ending_soon: bool,
+    pub ledgers_until_unlock: Option<u32>,
+    pub loan_at_risk: bool,
+    pub loan_health_factor_bps: Option<u32>,
+    pub rewards_near_cap: bool,
+}
+
+// ── Issue #376: halving countdown ────────────────────────────────────────────
+
+/// Countdown to the next reward halving, returned by `halving_countdown()`
+/// (issue #376). Builds on the halving schedule from issue #231
+/// (`HalvingConfig`). All fields are zero when no halving schedule has been
+/// configured via `set_halving_config()`.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct HalvingCountdown {
+    pub next_halving_ledger: u32,
+    pub ledgers_remaining: u32,
+    pub estimated_days_remaining: u32,
+    pub halvings_so_far: u32,
+    pub current_rate_bps: i128,
+    pub post_halving_rate_bps: i128,
+}
+
+// ── Issue #375: governance proposal comment thread ───────────────────────────
+
+/// A single stake-weighted comment on a governance proposal (issue #375).
+///
+/// `stake_weight` is the author's staked shares snapshotted at post time —
+/// same convention `GovernanceProposal` voting already uses ("not adjusted
+/// retroactively if the staker's position changes afterward").
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProposalComment {
+    pub author: Address,
+    pub text: String,
+    pub stake_weight: i128,
+    pub posted_at: u32,
+}
+

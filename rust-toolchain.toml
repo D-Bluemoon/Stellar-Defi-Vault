@@ -2,3 +2,4 @@
 channel = "1.94.0"
 components = ["rust-analyzer", "rustfmt", "clippy"]
 
+channel = "1.81.0"

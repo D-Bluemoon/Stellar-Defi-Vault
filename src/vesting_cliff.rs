@@ -3,7 +3,7 @@
 //! A cliff blocks reward *accrual* entirely until a position has been staked
 //! for a configurable minimum duration. Once the cliff is reached, rewards
 //! unlock all at once and accrue **retroactively from `staked_at_ledger`**, not
-//! from the cliff date — so the first claim after the cliff pays out
+//! from the cliff date â€” so the first claim after the cliff pays out
 //! `cliff_ledgers` worth of rewards.
 //!
 //! This is distinct from the two neighbouring features it is easy to confuse
@@ -25,12 +25,13 @@ use soroban_sdk::{contractimpl, symbol_short, Address, Env, Symbol};
 use crate::admin;
 use crate::errors::VaultError;
 use crate::storage::DataKey;
-use crate::vault::{VaultContract, VaultContractClient};
+use crate::VaultContract;
+use crate::vault::VaultContractClient;
 
 /// The ledger at which `user` last staked, if they hold a position.
 ///
 /// Read straight from `DataKey::StakedAtLedger` because `balance.rs` exposes
-/// no accessor for it — the same way `vault.rs` reads it.
+/// no accessor for it â€” the same way `vault.rs` reads it.
 fn staked_at_ledger(env: &Env, user: &Address) -> Option<u32> {
     env.storage()
         .persistent()
@@ -52,8 +53,8 @@ pub fn get_cliff_ledgers(env: &Env) -> u32 {
 
 /// The ledger at which `user`'s position clears the cliff.
 ///
-/// Returns `None` when the user has no recorded stake — there is nothing to
-/// unlock — and the stake ledger itself when no cliff is configured.
+/// Returns `None` when the user has no recorded stake â€” there is nothing to
+/// unlock â€” and the stake ledger itself when no cliff is configured.
 pub fn cliff_unlock_ledger_for(env: &Env, user: &Address) -> Option<u32> {
     let staked_at = staked_at_ledger(env, user)?;
     Some(staked_at.saturating_add(get_cliff_ledgers(env)))
@@ -66,7 +67,7 @@ pub fn cliff_unlock_ledger_for(env: &Env, user: &Address) -> Option<u32> {
 /// address look permanently locked.
 pub fn is_past_cliff_for(env: &Env, user: &Address) -> bool {
     match cliff_unlock_ledger_for(env, user) {
-        Some(unlock_at) => env.ledger().sequence() >= unlock_at,
+        Some(unlock_at) => crate::ledger_boundary::is_reached(env.ledger().sequence(), unlock_at),
         None => true,
     }
 }
@@ -117,43 +118,16 @@ pub fn reset_cliff_marker(env: &Env, user: &Address) {
         .remove(&(CLIFF_EVENT_KEY, user.clone()));
 }
 
-#[contractimpl]
-impl VaultContract {
-    /// Set the reward vesting cliff, in ledgers. `0` disables it.
-    ///
-    /// Admin only. Takes effect immediately for every position, including ones
-    /// already staked: the cliff is evaluated against `staked_at_ledger` on
-    /// each read rather than snapshotted at stake time, so lengthening it can
-    /// pull a position back under its cliff. That is deliberate — the
-    /// alternative is a per-position copy that an admin cannot correct.
-    pub fn set_vesting_cliff(env: Env, cliff_ledgers: u32) -> Result<(), VaultError> {
-        admin::require_admin(&env)?;
 
-        env.storage().instance().set(&CLIFF_KEY, &cliff_ledgers);
 
-        let admin = admin::get_admin(&env)?;
-        env.events().publish(
-            (symbol_short!("clf_set"), admin),
-            (cliff_ledgers, env.ledger().sequence()),
-        );
-        Ok(())
-    }
 
-    /// The configured cliff length in ledgers. `0` means no cliff.
-    pub fn get_vesting_cliff(env: Env) -> u32 {
-        get_cliff_ledgers(&env)
-    }
 
-    /// Whether `user`'s position has cleared its cliff.
-    pub fn is_past_cliff(env: Env, user: Address) -> bool {
-        is_past_cliff_for(&env, &user)
-    }
 
-    /// The ledger at which `user`'s position clears the cliff
-    /// (`staked_at_ledger + cliff_ledgers`).
-    ///
-    /// Returns `0` when the user has no recorded stake.
-    pub fn cliff_unlock_ledger(env: Env, user: Address) -> u32 {
-        cliff_unlock_ledger_for(&env, &user).unwrap_or(0)
-    }
-}
+
+
+
+
+
+
+
+
